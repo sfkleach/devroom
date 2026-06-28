@@ -18,18 +18,47 @@ dev-sfkleach-fuselage:latest
 
 i.e. `dev-<owner>-<repo>:<branch-or-latest>`. Stored only in the local podman image store — nothing pushed anywhere.
 
+## Configuration
+
+`devroom` follows a three-level configuration hierarchy, with each level overriding the one above:
+
+| Scope | Path |
+|---|---|
+| System-wide | `/etc/xdg/devroom/config` |
+| User-wide | `~/.config/devroom/config` |
+| Per-repo | `REPOROOT/.config/devroom/config` |
+
+The per-repo path mirrors the user-wide path, treating the repo root as structurally analogous to `$HOME`. Per-repo config may be committed to the repository (shared defaults) or added to `.gitignore` (personal overrides).
+
+### Configuration keys (v0.1)
+
+| Key | Default | Description |
+|---|---|---|
+| `runtime` | `podman` | Container runtime to use: `podman` or `docker` |
+| `base_image` | `ubuntu:24.04` | Base image for the generated `Containerfile` |
+| `jumpstart_script` | `scripts/jumpstart.sh` | Repo-relative path to the pre-requisite install script |
+
+### Example config file
+
+```toml
+runtime = "docker"
+base_image = "ubuntu:24.04"
+jumpstart_script = "scripts/jumpstart.sh"
+```
+
 ## Build flow
 
-The tool generates a `Containerfile` on the fly (no file committed to the repo):
+The tool generates a `Containerfile` on the fly (no file committed to the repo), using the
+`base_image` and `jumpstart_script` from resolved configuration:
 
 ```dockerfile
-FROM ubuntu:24.04
+FROM <base_image>
 
 # Prevent apt from prompting during jumpstart.sh
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Copy and run the repo's jumpstart script to install all pre-reqs
-COPY scripts/jumpstart.sh /tmp/jumpstart.sh
+COPY <jumpstart_script> /tmp/jumpstart.sh
 RUN bash /tmp/jumpstart.sh
 
 # Clone the repo fresh so the container has a clean working copy
@@ -44,13 +73,13 @@ ENTRYPOINT ["bash", "-c", "git pull && exec bash"]
 Built with:
 
 ```bash
-podman build --build-arg REPO_URL=<remote> -t dev-sfkleach-fuselage:latest .
+<runtime> build --build-arg REPO_URL=<remote> -t dev-sfkleach-fuselage:latest .
 ```
 
 ## Launch command
 
 ```bash
-podman run -it --rm \
+<runtime> run -it --rm \
   -v ~/.claude:/root/.claude:ro \
   -v ~/.ssh:/root/.ssh:ro \
   -v ~/.gitconfig:/root/.gitconfig:ro \
@@ -64,7 +93,7 @@ The tool rebuilds the image if:
 
 - No image exists yet
 - `--rebuild` flag is passed explicitly
-- `scripts/jumpstart.sh` is newer than the image (checked via `podman image inspect`
+- The resolved `jumpstart_script` is newer than the image (checked via `<runtime> image inspect`
   creation time vs file mtime)
 
 ## Sketch of the script
@@ -75,7 +104,25 @@ set -euo pipefail
 
 # Find repo root
 REPO_ROOT=$(git rev-parse --show-toplevel)
-JUMPSTART="$REPO_ROOT/scripts/jumpstart.sh"
+
+# Load configuration (system < user < per-repo)
+load_config() {
+    local key="$1" default="$2"
+    local val="$default"
+    for cfg in \
+        "/etc/xdg/devroom/config" \
+        "$HOME/.config/devroom/config" \
+        "$REPO_ROOT/.config/devroom/config"
+    do
+        [[ -f "$cfg" ]] && val=$(grep "^${key}\s*=" "$cfg" | tail -1 | sed 's/.*=\s*"\?\([^"]*\)"\?/\1/')
+    done
+    echo "$val"
+}
+
+RUNTIME=$(load_config runtime podman)
+BASE_IMAGE=$(load_config base_image ubuntu:24.04)
+JUMPSTART_REL=$(load_config jumpstart_script scripts/jumpstart.sh)
+JUMPSTART="$REPO_ROOT/$JUMPSTART_REL"
 
 # Derive image name from remote
 REMOTE_URL=$(git remote get-url origin)
@@ -85,9 +132,9 @@ IMAGE="dev-$OWNER-$REPO:latest"
 
 # Build if needed
 NEEDS_BUILD=false
-if ! podman image exists "$IMAGE"; then
+if ! $RUNTIME image exists "$IMAGE"; then
     NEEDS_BUILD=true
-elif [[ "$JUMPSTART" -nt $(podman image inspect "$IMAGE" --format '{{.Created}}') ]]; then
+elif [[ "$JUMPSTART" -nt $($RUNTIME image inspect "$IMAGE" --format '{{.Created}}') ]]; then
     echo "jumpstart.sh is newer than image — rebuilding"
     NEEDS_BUILD=true
 fi
@@ -98,12 +145,12 @@ if $NEEDS_BUILD; then
     TMPDIR=$(mktemp -d)
     trap 'rm -rf "$TMPDIR"' EXIT
     cp "$JUMPSTART" "$TMPDIR/jumpstart.sh"
-    # write Containerfile into TMPDIR, build from there
+    # write Containerfile into TMPDIR using $BASE_IMAGE, build from there
     ...
 fi
 
 # Launch
-exec podman run -it --rm \
+exec $RUNTIME run -it --rm \
   -v ~/.claude:/root/.claude:ro \
   -v ~/.ssh:/root/.ssh:ro \
   -v ~/.gitconfig:/root/.gitconfig:ro \
@@ -118,7 +165,5 @@ exec podman run -it --rm \
    version-controlled with the project.
 2. **Branch-specific images?** Tag by branch (`dev-sfkleach-fuselage:main`) or always
    `latest`?
-3. **What base image?** `ubuntu:24.04` hardcoded, or a comment in `jumpstart.sh` that
-   the tool reads?
-4. **Should it pass the current branch** into the container so `git pull` checks out the
+3. **Should it pass the current branch** into the container so `git pull` checks out the
    right branch?
