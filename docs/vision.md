@@ -12,6 +12,9 @@ interaction follows:
 
 ```txt
 % devroom
+No devrooms have been created yet. Press 'n' to create a new room.
+Command? (Press '?' for help): n
+
 What is this devroom's nickname? (room001): taskbar-rampage
 What branch should it use? (taskbar-rampage): add/!!
   No branch `add/taskbar-rampage` exists, create now? (Y/n): y
@@ -36,8 +39,54 @@ and then launches a persistent container that pulls the repo and switches to
 the `add/taskbar-rampage` branch before dropping into a bash.
 
 Steve comes back from the kitchen to see the shell prompt `taskbar-rampage% `
-waiting for him. He types `claude` and gets to work.
+waiting for him. He types `claude` and gets to work ...
 
+... after a while, Steve needs to restart his system. He tidily exits claude 
+and then the devroom, then restarts his system. Once the system is back again
+he reopens hs terminal, navigates to his repo and runs `devroom`.
+
+```txt
+% devroom
+Rooms List
+1. taskbar-rampage
+
+Command ('?' for help): ?
+
+Summary of commands
+  c - configure devroom
+  D - destroy the base container image (it will be rebuilt on demand)
+  e - enter a room, will prompt for name
+  1-9 enter a listed room
+  l - list rooms
+  n - open a new room
+  q - quits devroom (or use ctrl-d)
+  s - summarise room activity
+  X - exits and closes a room  (container is deleted)
+  
+Command? (Press '?' for help): s
+
+Rooms summary
+1. taskbar-rampage
+This room is implementing GitHub issue #123 "Widgetzilla goes on taskbar
+rampage". The taskbar is snapshotted and an animation of Widgetzilla, marching
+up and down the taskbar, tearing down tall icons and roaring defiantly. The
+animation is then played over the taskbar area. Working branch is 
+`add/taskbar-rampage`. 
+
+Command? (Press '?' for help): 1
+Welcome back to `taskbar-rampage`.
+% 
+```
+
+A couple of months go by and Steve realises that he hasn't worked on 
+Widgetzilla for a few weeks and has stopped work. There's not much point in
+keeping the base image. He knows the subcommand for this:
+
+```txt
+% devroom destroy -y
+Delete container for taskbar-rampage ... done
+Delete base-image for widgetzilla ... done
+```
 
 
 
