@@ -12,3 +12,7 @@ is described in:
 Write the basic skeleton for a go program with `cmd/` and `pkg/` folders, which
 starts up, prints "hello world" and then stops.
 
+## Step 2: Version
+
+Implement the `--version` flag, using the cobra library. And arrange for the
+version to be a build flag.

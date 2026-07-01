@@ -33,7 +33,7 @@ clean:
 # This is a recipe to build all the binaries that we can in order to
 # test the build process. It is not intended to be run in production.
 build:
-    go build -o devroom ./cmd/devroom
+    go build -ldflags "-X main.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev)" -o devroom ./cmd/devroom
 
 run:
     go run ./cmd/devroom

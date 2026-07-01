@@ -136,10 +136,21 @@ The base image is rebuilt if:
 
 ## Room container lifecycle
 
+### Shell selection
+
+`devroom` passes the host's `$SHELL` into the container and uses it as the
+interactive shell, falling back to `/bin/bash` if the binary is not present in
+the container image:
+
+```bash
+exec "${SHELL:-/bin/bash}" 2>/dev/null || exec /bin/bash
+```
+
 ### First entry
 
 ```bash
 <runtime> run -it --name devroom-<owner>-<repo>-<nickname> \
+  -e DEVROOM_SHELL="${SHELL:-/bin/bash}" \
   -v ~/.claude:/root/.claude:ro \
   -v ~/.ssh:/root/.ssh:ro \
   -v ~/.gitconfig:/root/.gitconfig:ro \
@@ -147,7 +158,8 @@ The base image is rebuilt if:
   dev-<owner>-<repo>:base \
   bash -c "[ -d /workspace/repo ] || git clone <remote> /workspace/repo && \
            cd /workspace/repo && git checkout <branch> && \
-           export PS1='<nickname>% ' && exec bash"
+           export PS1='<nickname>% ' && \
+           exec \${DEVROOM_SHELL} 2>/dev/null || exec /bin/bash"
 ```
 
 ### Re-entry (container stopped)
@@ -207,10 +219,30 @@ the summary, then stops it again.
 
 ## CLI subcommands
 
-Beyond the TUI, `devroom` supports direct subcommands for scripting:
+Beyond the TUI, `devroom` supports direct subcommands for scripting and
+keyboard-shortcut workflows. All subcommands operate on the repo in the current
+working directory.
+
+### Informational flags (root command)
+
+| Flag | Effect |
+|---|---|
+| `--help`, `-h` | Print usage summary and list of subcommands. |
+| `--version`, `-V` | Print the `devroom` version and exit. |
+
+These are also available as subcommands for scripting convenience.
+
+### Subcommands
 
 | Command | Effect |
 |---|---|
+| `devroom help [subcommand]` | Print usage for the given subcommand, or general help if omitted. |
+| `devroom version` | Print the `devroom` version and exit. Useful in scripts. |
+| `devroom new [--nickname <name>] [--branch <branch>]` | Create a new room. Prompts for any omitted values. |
+| `devroom enter <nickname>` | Enter the named room (start or resume its container). |
+| `devroom list` | Print all rooms for this repo with their branch and container state. |
+| `devroom summary [<nickname>]` | Print the AI-generated summary for the named room, or all rooms if no nickname is given. |
+| `devroom close <nickname>` | Stop and delete the named room's container (base image kept). |
 | `devroom destroy [-y]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-y` is passed. |
 
 ## Resolved design decisions
