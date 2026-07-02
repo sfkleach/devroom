@@ -238,6 +238,8 @@ These are also available as subcommands for scripting convenience.
 |---|---|
 | `devroom help [subcommand]` | Print usage for the given subcommand, or general help if omitted. |
 | `devroom version` | Print the `devroom` version and exit. Useful in scripts. |
+| `devroom init` | Create an initial `.config/devroom/devroom.toml`. |
+| `devroom build` | Builds or rebuilds the base image, useful for checking the initialisation. |
 | `devroom new [--nickname <name>] [--branch <branch>]` | Create a new room. Prompts for any omitted values. |
 | `devroom enter <nickname>` | Enter the named room (start or resume its container). |
 | `devroom list` | Print all rooms for this repo with their branch and container state. |
