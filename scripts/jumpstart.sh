@@ -13,9 +13,16 @@ if ! command -v apt-get >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "==> Installing apt packages (requires sudo)..."
-sudo apt-get update -q
-sudo apt-get install -y \
+# When running as root, sudo is unnecessary and often absent in containers.
+if [ "$(id -u)" -eq 0 ]; then
+    SUDO=""
+else
+    SUDO="sudo"
+fi
+
+echo "==> Installing apt packages..."
+$SUDO apt-get update -q
+$SUDO apt-get install -y \
     build-essential \
     curl \
     git \
@@ -29,8 +36,8 @@ install_go() {
     tmpdir=$(mktemp -d)
     trap 'rm -rf "$tmpdir"' RETURN
     curl -sL "https://go.dev/dl/${archive}" -o "$tmpdir/${archive}"
-    sudo rm -rf /usr/local/go
-    sudo tar -C /usr/local -xzf "$tmpdir/${archive}"
+    $SUDO rm -rf /usr/local/go
+    $SUDO tar -C /usr/local -xzf "$tmpdir/${archive}"
     echo "==> Go ${GO_VERSION} installed."
 }
 
@@ -57,7 +64,7 @@ if command -v podman >/dev/null 2>&1; then
     echo "==> podman already installed ($(podman --version))."
 else
     echo "==> Installing podman..."
-    sudo apt-get install -y podman
+    $SUDO apt-get install -y podman
     echo "==> podman installed."
 fi
 

@@ -57,10 +57,8 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 func isGitRepo(dir string) bool {
-	cmd := exec.Command("git", "-C", dir, "rev-parse", "--git-dir")
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	return cmd.Run() == nil
+	_, err := os.Stat(filepath.Join(dir, ".git"))
+	return err == nil
 }
 
 // detectRuntime checks for docker and podman in PATH.
