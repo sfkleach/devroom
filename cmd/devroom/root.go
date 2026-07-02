@@ -11,6 +11,7 @@ import (
 var Version = "dev"
 
 var showVersion bool
+var rootDir string
 
 var rootCmd = &cobra.Command{
 	Use:   "devroom",
@@ -32,6 +33,15 @@ func Execute() {
 	}
 }
 
+// effectiveRootDir returns --rootdir if set, otherwise the current working directory.
+func effectiveRootDir() (string, error) {
+	if rootDir != "" {
+		return rootDir, nil
+	}
+	return os.Getwd()
+}
+
 func init() {
 	rootCmd.Flags().BoolVarP(&showVersion, "version", "V", false, "Print version and exit")
+	rootCmd.PersistentFlags().StringVarP(&rootDir, "rootdir", "r", "", "Project root directory (default: current working directory)")
 }

@@ -41,23 +41,31 @@ run:
 
 # Run the unittests
 unittest:
-    # go test -v -cover ./mg
-    go test -cover ./mg
+    go test -cover ./...
     @echo
 
 # Generate a coverage report for the unittests
 unittest-coverage:
     rm -rf _build
     mkdir -p _build/
-    go test -cover -coverprofile=_build/unittest.out ./mg
+    go test -cover -coverprofile=_build/unittest.out ./...
     go tool cover -html=_build/unittest.out -o _build/unittest.html
     #open _build/unittest.html
+
+functest:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    rm -rf _build/
+    mkdir -p _build
+    go build -o _build/devroom ./cmd/devroom
+    bash tests/functest.sh _build/devroom
+
 
 # # Run the functional tests
 # functest: build-mini poetry-update-if-needed
 #     (cd functests && poetry run python3 functest.py --quiet --tests *-tests.yaml --command='../monogram-mini' --check-on-path '..')
 
-test: unittest 
+test: unittest functest
 
 # Run the latest version of monogram and print the version
 get-version:
