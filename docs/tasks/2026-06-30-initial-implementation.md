@@ -66,17 +66,36 @@ cases `devroom` should quit.
 
 ## Step 5: new subcommand
 
-Implement the `new` subcommand which will create a new devroom, using the 
-current folder to implicitly supply the repo's forge, organisation and 
-project. It should accept options `--name` and `--branch`.
+Implement the `new` subcommand which will create a new room, layered on the base
+image, using the repo in the current folder to implicitly supply the repo's
+forge, organisation and project. It should accept options `--name` and
+`--branch`.
 
-- `-n,--name NAME` sets the name of the devroom that will be created. The
+- `-n,--name NAME` sets the name of the room that will be created. The
   intention is this is a nickname for the feature/fix and a suitable branch
   name.
 - `-b,--branch` if present, creates and checks out a feature branch with the
   same name as the devroom.
-- 
 
+The result of this subcommand is a new container, synonymous with "the created
+room". Rooms will be run with the `enter` subcommand, not yet implemented, which
+supplies the right arguments for podman/docker.
 
+On initial entry the room should clone the repo. If the `-b` branch is
+present then it should check this name is available and switch to it (otherwise
+abort with an error). The user should be left at an interactive prompt.
 
+## Step 6: enter subcommand
 
+Implement the `enter` subcommand, which runs a room (a container) with the 
+appropriate mounts to share credentials.
+
+- See docs/devroom-proposal.md, "First entry" and "Forge credentials"
+
+We also need to set up a suitable prompt, so the rooms are easily distinguished.
+
+- See docs/devroom-proposal.md, "First entry"
+
+And we need to distinguish first entry and subsequent re-entries. 
+
+- See docs/devroom-proposal.md, "Re-entry (container stopped)"
