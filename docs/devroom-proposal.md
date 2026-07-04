@@ -83,7 +83,7 @@ added to `.gitignore` (personal overrides).
 | `runtime` | `podman` | Container engine to use: `podman` or `docker` |
 | `base_image` | `ubuntu:24.04` | Base OS image for the generated `Containerfile` |
 | `jumpstart_script` | `scripts/jumpstart.sh` | Repo-relative path to the prerequisite install script |
-| `summary_model` | `claude` | Command used inside the container to generate AI summaries |
+| `summary_model` | `claude -p {}` | Command used inside the container to generate AI summaries |
 
 ### Example config file
 

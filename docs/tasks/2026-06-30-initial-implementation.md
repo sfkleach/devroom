@@ -70,10 +70,13 @@ Implement the `new` subcommand which will create a new devroom, using the
 current folder to implicitly supply the repo's forge, organisation and 
 project. It should accept options `--name` and `--branch`.
 
-- `-n,--name NAME` sets the name of the devroom that will be created. The intention
-  is this is a nickname for the feature/fix and a suitable branch name.
-- `-b,--branch` creates and checks out a feature branch with the same name as
-  the devroom.
+- `-n,--name NAME` sets the name of the devroom that will be created. The
+  intention is this is a nickname for the feature/fix and a suitable branch
+  name.
+- `-b,--branch` if present, creates and checks out a feature branch with the
+  same name as the devroom.
+- 
+
 
 
 

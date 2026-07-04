@@ -21,12 +21,15 @@ else
 fi
 
 echo "==> Installing apt packages..."
-$SUDO apt-get update -q
-$SUDO apt-get install -y \
+$SUDO apt-get -qq update >/dev/null
+$SUDO apt-get -qq install -y \
     build-essential \
     curl \
     git \
-    python3
+    python3 \
+    jq \
+    unzip \
+    >/dev/null
 
 # Go: install via official tarball if not present or below minimum version.
 install_go() {
@@ -64,8 +67,18 @@ if command -v podman >/dev/null 2>&1; then
     echo "==> podman already installed ($(podman --version))."
 else
     echo "==> Installing podman..."
-    $SUDO apt-get install -y podman
+    $SUDO apt-get -qq install -y podman >/dev/null
     echo "==> podman installed."
+fi
+
+
+# Claude Code CLI.
+if command -v claude >/dev/null 2>&1; then
+    echo "==> Claude Code already installed ($(claude --version 2>&1 | head -1))."
+else
+    echo "==> Installing Claude Code CLI..."
+    curl -L https://claude.ai/install.sh | bash
+    echo "==> Claude Code installed."
 fi
 
 echo ""
