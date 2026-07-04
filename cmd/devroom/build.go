@@ -84,11 +84,32 @@ func runBuild(cmd *cobra.Command, args []string) error {
 
 func generateContainerfile(cfg *config.Config) string {
 	cf := fmt.Sprintf("FROM %s\n\nENV DEBIAN_FRONTEND=noninteractive\n", cfg.BaseImage)
+	// gh and glab are hard dependencies: devroom authenticates git clones
+	// inside the room using whichever forge CLI matches the origin host,
+	// instead of relying on SSH keys/agent forwarding. Install them before
+	// the project's own jumpstart script so it can assume they are present.
+	cf += "\n" + forgeToolsInstall
 	if cfg.JumpstartScript != "" {
 		cf += "\nCOPY jumpstart.sh /tmp/jumpstart.sh\nRUN bash /tmp/jumpstart.sh\n"
 	}
 	return cf
 }
+
+// forgeToolsInstall installs the GitHub and GitLab CLIs via their official
+// apt repositories. This assumes a Debian/Ubuntu base image, consistent with
+// jumpstart.sh's own requirement of apt-get.
+const forgeToolsInstall = `RUN apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends curl ca-certificates \
+    && mkdir -p -m 755 /etc/apt/keyrings \
+    && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" > /etc/apt/sources.list.d/github-cli.list \
+    && curl -fsSL https://packages.gitlab.com/install/repositories/gitlab.com/glab/script.deb.sh | bash \
+    && apt-get update -qq \
+    && apt-get install -y -qq --no-install-recommends gh glab \
+    && rm -rf /var/lib/apt/lists/*
+`
+
 
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)

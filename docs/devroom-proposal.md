@@ -26,18 +26,20 @@ re-entering resumes it via `<engine> start`.
 
 ## Forge detection
 
-`devroom` infers the forge tool from the origin URL and mounts the appropriate
-credentials into the container:
+`devroom` infers the forge CLI from the origin URL's hostname: `github.com`
+maps to `gh`, any other host containing `gitlab` (self-hosted instances
+included) maps to `glab`. Any other host is unsupported and fails clearly.
 
-| Origin host | Tool | Credential mount |
-|---|---|---|
-| `github.com` | `gh` | `~/.config/gh:/root/.config/gh:ro` |
-| `gitlab.com` / self-hosted GitLab | `glab` | `~/.config/glab:/root/.config/glab:ro` |
+Rather than bind-mounting the host's `~/.config/gh` / `~/.config/glab`
+directories (which doesn't work when the CLI's token is backed by the OS
+keyring rather than a plaintext file), devroom acquires a token from the
+host CLI (`gh auth token` / `glab auth status --show-token`) and pipes it
+over a dedicated stdin into a one-shot login of the same CLI inside the
+container, then configures git's credential helper to use it for HTTPS
+clones. See
+[docs/decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding](decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding.md)
+for the full rationale.
 
-The forge is detected by inspecting the hostname in `git remote get-url origin`.
-Self-hosted GitLab instances are identified by the absence of `github.com` combined
-with a path structure consistent with GitLab (heuristic; can be overridden via
-config if needed in future). Only the relevant credential directory is mounted.
 
 ## Naming
 

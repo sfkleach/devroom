@@ -52,3 +52,30 @@ func parseHTTPS(remote string) (owner, repo string, err error) {
 	}
 	return segs[len(segs)-2], segs[len(segs)-1], nil
 }
+
+// Host returns the hostname portion of a git remote URL. Handles both HTTPS
+// (https://github.com/owner/repo.git) and SSH (git@github.com:owner/repo.git)
+// formats.
+func Host(remoteURL string) (string, error) {
+	if strings.HasPrefix(remoteURL, "git@") {
+		rest := strings.TrimPrefix(remoteURL, "git@")
+		colon := strings.Index(rest, ":")
+		if colon < 0 {
+			return "", fmt.Errorf("cannot parse SSH remote URL: %s", remoteURL)
+		}
+		return rest[:colon], nil
+	}
+	u, err := url.Parse(remoteURL)
+	if err != nil {
+		return "", fmt.Errorf("cannot parse remote URL %s: %w", remoteURL, err)
+	}
+	if u.Host == "" {
+		return "", fmt.Errorf("cannot determine host from remote URL: %s", remoteURL)
+	}
+	return u.Host, nil
+}
+
+// HTTPSRemote builds a canonical HTTPS clone URL from a host, owner and repo.
+func HTTPSRemote(host, owner, repo string) string {
+	return fmt.Sprintf("https://%s/%s/%s.git", host, owner, repo)
+}

@@ -18,12 +18,26 @@ trusted development work, not for running untrusted third-party code.
 
 ### Other credential mounts
 
-The following are mounted **read-only**:
+`~/.gitconfig` is mounted **read-only** to `~/.gitconfig.host-ro`, then copied
+once into a writable, container-local `~/.gitconfig` during room setup. This
+seeds git identity (`user.name`/`user.email`) from the host; the two files
+diverge from that point on, so later changes to your host `~/.gitconfig` do
+not propagate into existing rooms.
 
-| Mount | Purpose |
-|---|---|
-| `~/.ssh` | Git SSH authentication |
-| `~/.gitconfig` | Git identity and settings |
-| `~/.config/gh` | GitHub CLI (`gh`) credentials |
-| `~/.config/glab` | GitLab CLI (`glab`) credentials |
-| `$SSH_AUTH_SOCK` | SSH agent socket (if present) |
+Commit/tag signing config (`commit.gpgsign`, `tag.gpgsign`, `gpg.format`,
+`user.signingkey`) is stripped from the copied gitconfig, so commits made
+inside a room are unsigned. Rooms have no access to the host's private
+signing key or an `ssh-agent`, and — since rooms exist for AI agents to work
+in — shouldn't be able to produce commits cryptographically signed as your
+real identity anyway.
+
+Git authentication for the room's origin (GitHub or GitLab) is handled by
+acquiring a token from `gh`/`glab` on the host (`gh auth token` or `glab auth
+status --show-token`) and piping it, over a dedicated stdin, into a one-shot
+login of the same CLI inside the container. The token is never passed as a
+container environment variable or CLI argument, so it isn't persisted in
+`podman`/`docker inspect` output or visible via `ps` on the host. `gh`/`glab`
+are hard dependencies of the base image (installed automatically before your
+`jumpstart_script` runs) — see
+[docs/decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding](docs/decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding.md)
+for the full rationale.

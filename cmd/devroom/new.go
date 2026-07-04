@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
@@ -59,6 +60,22 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	host, err := devgit.Host(remoteURL)
+	if err != nil {
+		return err
+	}
+	f := detectForge(host)
+	if f == forgeUnknown {
+		return fmt.Errorf("unrecognised git forge host %q; only github.com and gitlab hosts are supported", host)
+	}
+	// Acquire the auth token up front, before creating any container, so
+	// misconfigured/missing forge CLI credentials fail fast and clearly
+	// rather than after a room has already been partially created.
+	token, err := f.token()
+	if err != nil {
+		return err
+	}
+	httpsRemote := devgit.HTTPSRemote(host, owner, repo)
 
 	if newBranch {
 		if err := checkBranchAvailable(root, newName); err != nil {
@@ -72,18 +89,41 @@ func runNew(cmd *cobra.Command, args []string) error {
 	}
 	home := u.HomeDir
 	workspace := home + "/workspace"
+	hostGitconfig := filepath.Join(home, ".gitconfig")
+	containerGitconfigHostRO := home + "/.gitconfig.host-ro"
 
 	baseImage := fmt.Sprintf("localhost/dev-%s-%s:base", owner, repo)
 	containerName := fmt.Sprintf("devroom-%s-%s-%s", owner, repo, newName)
 
 	fmt.Printf("==> Creating room %q from %s ...\n", containerName, baseImage)
-	run := exec.Command(cfg.Runtime, "run", "-d", "--name", containerName,
-		"-e", "DEVROOM_UID="+u.Uid,
-		"-e", "DEVROOM_GID="+u.Gid,
-		"-e", "DEVROOM_USER="+u.Username,
-		"-e", "DEVROOM_HOME="+home,
-		baseImage, "sleep", "infinity",
-	)
+	runArgs := []string{
+		"run", "-d", "--name", containerName,
+		"-e", "DEVROOM_UID=" + u.Uid,
+		"-e", "DEVROOM_GID=" + u.Gid,
+		"-e", "DEVROOM_USER=" + u.Username,
+		"-e", "DEVROOM_HOME=" + home,
+	}
+	if cfg.Runtime == "podman" {
+		// Under rootless Podman, container UIDs are remapped through the
+		// subuid range by default, so a container process running as
+		// "host UID 1000" is not actually the host's UID 1000 as far as the
+		// kernel is concerned. That breaks read access to bind-mounted
+		// files owned by the real host user, such as ~/.ssh/known_hosts,
+		// which in turn makes ssh silently fail host key verification.
+		// --userns=keep-id maps the container's matching UID/GID back to
+		// the real host UID/GID so bind mounts keep the right ownership.
+		runArgs = append(runArgs, "--userns=keep-id")
+	}
+	// Mount ~/.gitconfig read-only to a side path rather than straight onto
+	// $HOME/.gitconfig: the setup step below needs to write the forge CLI's
+	// credential helper into the container user's global gitconfig, which
+	// isn't possible if that path is a read-only bind mount of the host file.
+	if _, err := os.Stat(hostGitconfig); err == nil {
+		runArgs = append(runArgs, "-v", hostGitconfig+":"+containerGitconfigHostRO+":ro")
+	}
+	runArgs = append(runArgs, baseImage, "sleep", "infinity")
+
+	run := exec.Command(cfg.Runtime, runArgs...)
 	run.Stdout = os.Stdout
 	run.Stderr = os.Stderr
 	if err := run.Run(); err != nil {
@@ -92,22 +132,54 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	fmt.Println("==> Setting up user inside container...")
 	userSetup := `
+# Base images (e.g. ubuntu:latest) often ship a baked-in user at UID/GID
+# 1000, which collides with the common default first-user UID on the host.
+# If that pre-existing account isn't ours, remove it so the real user (with
+# the correct DEVROOM_HOME) can be created at that UID; otherwise exec'ing
+# as that UID resolves to the wrong $HOME and credential mounts are missed.
+existing_user=$(getent passwd "${DEVROOM_UID}" | cut -d: -f1)
+if [ -n "${existing_user}" ] && [ "${existing_user}" != "${DEVROOM_USER}" ]; then
+    userdel "${existing_user}" >/dev/null 2>&1 || true
+fi
 getent group "${DEVROOM_GID}" >/dev/null 2>&1 || groupadd -g "${DEVROOM_GID}" "${DEVROOM_USER}"
 getent passwd "${DEVROOM_UID}" >/dev/null 2>&1 || useradd -u "${DEVROOM_UID}" -g "${DEVROOM_GID}" -d "${DEVROOM_HOME}" -s /bin/bash -M "${DEVROOM_USER}"
 mkdir -p "${DEVROOM_HOME}"
 chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}"
+[ -f "${DEVROOM_HOME}/.gitconfig" ] || cp "${DEVROOM_HOME}/.gitconfig.host-ro" "${DEVROOM_HOME}/.gitconfig" 2>/dev/null || true
+chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}/.gitconfig" 2>/dev/null || true
+# Rooms have no access to the host's private signing key or an ssh-agent, and
+# shouldn't be able to produce commits cryptographically signed as the real
+# developer identity anyway, so strip any signing config copied from the host.
+for key in commit.gpgsign tag.gpgsign gpg.format user.signingkey; do
+    git config --file "${DEVROOM_HOME}/.gitconfig" --unset-all "$key" 2>/dev/null || true
+done
 `
-	setup := exec.Command(cfg.Runtime, "exec", containerName, "bash", "-c", userSetup)
+	// Run as root explicitly: with --userns=keep-id (used for podman), the
+	// container's default exec user is the current host user rather than
+	// root, so useradd/chown here would otherwise fail with EPERM.
+	setup := exec.Command(cfg.Runtime, "exec", "--user", "root", containerName, "bash", "-c", userSetup)
 	setup.Stdout = os.Stdout
 	setup.Stderr = os.Stderr
 	if err := setup.Run(); err != nil {
 		return fmt.Errorf("setting up user: %w", err)
 	}
 
+	fmt.Printf("==> Authenticating with %s via %s...\n", host, f.name())
+	login := exec.Command(cfg.Runtime, "exec", "-i",
+		"--user", u.Uid+":"+u.Gid,
+		containerName, "bash", "-c", loginScript(f, host),
+	)
+	login.Stdin = strings.NewReader(token + "\n")
+	login.Stdout = os.Stdout
+	login.Stderr = os.Stderr
+	if err := login.Run(); err != nil {
+		return fmt.Errorf("authenticating with %s: %w", f.name(), err)
+	}
+
 	fmt.Println("==> Cloning repository...")
 	clone := exec.Command(cfg.Runtime, "exec",
 		"--user", u.Uid+":"+u.Gid,
-		containerName, "git", "clone", remoteURL, workspace,
+		containerName, "git", "clone", httpsRemote, workspace,
 	)
 	clone.Stdout = os.Stdout
 	clone.Stderr = os.Stderr
