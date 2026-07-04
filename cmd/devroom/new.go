@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
@@ -65,19 +66,49 @@ func runNew(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	u, err := user.Current()
+	if err != nil {
+		return fmt.Errorf("getting current user: %w", err)
+	}
+	home := u.HomeDir
+	workspace := home + "/workspace"
+
 	baseImage := fmt.Sprintf("localhost/dev-%s-%s:base", owner, repo)
 	containerName := fmt.Sprintf("devroom-%s-%s-%s", owner, repo, newName)
 
 	fmt.Printf("==> Creating room %q from %s ...\n", containerName, baseImage)
-	run := exec.Command(cfg.Runtime, "run", "-d", "--name", containerName, baseImage, "sleep", "infinity")
+	run := exec.Command(cfg.Runtime, "run", "-d", "--name", containerName,
+		"-e", "DEVROOM_UID="+u.Uid,
+		"-e", "DEVROOM_GID="+u.Gid,
+		"-e", "DEVROOM_USER="+u.Username,
+		"-e", "DEVROOM_HOME="+home,
+		baseImage, "sleep", "infinity",
+	)
 	run.Stdout = os.Stdout
 	run.Stderr = os.Stderr
 	if err := run.Run(); err != nil {
 		return fmt.Errorf("creating container: %w", err)
 	}
 
+	fmt.Println("==> Setting up user inside container...")
+	userSetup := `
+getent group "${DEVROOM_GID}" >/dev/null 2>&1 || groupadd -g "${DEVROOM_GID}" "${DEVROOM_USER}"
+getent passwd "${DEVROOM_UID}" >/dev/null 2>&1 || useradd -u "${DEVROOM_UID}" -g "${DEVROOM_GID}" -d "${DEVROOM_HOME}" -s /bin/bash -M "${DEVROOM_USER}"
+mkdir -p "${DEVROOM_HOME}"
+chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}"
+`
+	setup := exec.Command(cfg.Runtime, "exec", containerName, "bash", "-c", userSetup)
+	setup.Stdout = os.Stdout
+	setup.Stderr = os.Stderr
+	if err := setup.Run(); err != nil {
+		return fmt.Errorf("setting up user: %w", err)
+	}
+
 	fmt.Println("==> Cloning repository...")
-	clone := exec.Command(cfg.Runtime, "exec", containerName, "git", "clone", remoteURL, "/workspace")
+	clone := exec.Command(cfg.Runtime, "exec",
+		"--user", u.Uid+":"+u.Gid,
+		containerName, "git", "clone", remoteURL, workspace,
+	)
 	clone.Stdout = os.Stdout
 	clone.Stderr = os.Stderr
 	if err := clone.Run(); err != nil {
@@ -86,7 +117,10 @@ func runNew(cmd *cobra.Command, args []string) error {
 
 	if newBranch {
 		fmt.Printf("==> Creating branch %q ...\n", newName)
-		branch := exec.Command(cfg.Runtime, "exec", containerName, "git", "-C", "/workspace", "checkout", "-b", newName)
+		branch := exec.Command(cfg.Runtime, "exec",
+			"--user", u.Uid+":"+u.Gid,
+			containerName, "git", "-C", workspace, "checkout", "-b", newName,
+		)
 		branch.Stdout = os.Stdout
 		branch.Stderr = os.Stderr
 		if err := branch.Run(); err != nil {

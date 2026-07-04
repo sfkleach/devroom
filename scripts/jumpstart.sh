@@ -60,17 +60,13 @@ else
 fi
 
 # Make Go and installed binaries available for subsequent steps.
-export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+export PATH="/usr/local/go/bin:$HOME/go/bin:$HOME/.local/bin:$PATH"
 
-# podman: needed for container operations.
-if command -v podman >/dev/null 2>&1; then
-    echo "==> podman already installed ($(podman --version))."
-else
-    echo "==> Installing podman..."
-    $SUDO apt-get -qq install -y podman >/dev/null
-    echo "==> podman installed."
-fi
-
+# Persist PATH additions for interactive shells in the container.
+# Use ${HOME} so the path works for any user, not just root.
+cat > /etc/profile.d/devroom-path.sh << 'EOF'
+export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:$PATH"
+EOF
 
 # Claude Code CLI.
 if command -v claude >/dev/null 2>&1; then
@@ -79,6 +75,13 @@ else
     echo "==> Installing Claude Code CLI..."
     curl -L https://claude.ai/install.sh | bash
     echo "==> Claude Code installed."
+fi
+
+# Make claude available system-wide so non-root container users can run it.
+if [ -f "${HOME}/.local/bin/claude" ] && [ ! -f /usr/local/bin/claude ]; then
+    cp "${HOME}/.local/bin/claude" /usr/local/bin/claude
+    chmod 755 /usr/local/bin/claude
+    echo "==> Claude Code copied to /usr/local/bin/claude."
 fi
 
 echo ""

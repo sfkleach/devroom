@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/user"
 	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
@@ -85,12 +86,19 @@ func containerState(runtime, name string) (string, error) {
 }
 
 // firstEntry creates a new container with all credential mounts and runs the
-// initial clone + shell setup.
+// initial clone + shell setup. It creates an unprivileged user inside the
+// container matching the host UID/GID so that mounted credentials are readable
+// and Claude Code does not see a different user identity.
 func firstEntry(runtime, containerName, baseImage, remoteURL, nickname string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
 	}
+	u, err := user.Current()
+	if err != nil {
+		return err
+	}
+
 	shell := os.Getenv("SHELL")
 	if shell == "" {
 		shell = "/bin/bash"
@@ -99,9 +107,15 @@ func firstEntry(runtime, containerName, baseImage, remoteURL, nickname string) e
 	runArgs := []string{
 		"run", "-it", "--name", containerName,
 		"-e", "DEVROOM_SHELL=" + shell,
-		"-v", home + "/.claude:/root/.claude:ro",
-		"-v", home + "/.ssh:/root/.ssh:ro",
-		"-v", home + "/.gitconfig:/root/.gitconfig:ro",
+		"-e", "DEVROOM_UID=" + u.Uid,
+		"-e", "DEVROOM_GID=" + u.Gid,
+		"-e", "DEVROOM_USER=" + u.Username,
+		"-e", "DEVROOM_HOME=" + home,
+		"-e", "DEVROOM_NICK=" + nickname,
+		"-e", "DEVROOM_REMOTE=" + remoteURL,
+		"-v", home + "/.claude:" + home + "/.claude",
+		"-v", home + "/.ssh:" + home + "/.ssh:ro",
+		"-v", home + "/.gitconfig:" + home + "/.gitconfig:ro",
 	}
 
 	if sock := os.Getenv("SSH_AUTH_SOCK"); sock != "" {
@@ -115,15 +129,22 @@ func firstEntry(runtime, containerName, baseImage, remoteURL, nickname string) e
 		runArgs = append(runArgs, "-v", mount)
 	}
 
-	runArgs = append(runArgs, baseImage, "bash", "-c",
-		fmt.Sprintf(
-			`[ -d /workspace ] || git clone %s /workspace && `+
-				`cd /workspace && `+
-				`printf '. /root/.bashrc 2>/dev/null\nPS1="%s%%%% "\n' > /root/.devroom_rc && `+
-				`exec bash --init-file /root/.devroom_rc -i`,
-			remoteURL, nickname,
-		),
-	)
+	// Create a matching user inside the container, clone the repo into the
+	// user's home directory, write ~/.bash_profile to set PS1 and cd into the
+	// workspace, then hand off to an interactive login shell as that user.
+	initScript := `
+getent group "${DEVROOM_GID}" >/dev/null 2>&1 || groupadd -g "${DEVROOM_GID}" "${DEVROOM_USER}"
+getent passwd "${DEVROOM_UID}" >/dev/null 2>&1 || useradd -u "${DEVROOM_UID}" -g "${DEVROOM_GID}" -d "${DEVROOM_HOME}" -s /bin/bash -M "${DEVROOM_USER}"
+mkdir -p "${DEVROOM_HOME}"
+chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}"
+[ -f "${DEVROOM_HOME}/.bashrc" ] || { cp /etc/skel/.bashrc "${DEVROOM_HOME}/.bashrc" 2>/dev/null && chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}/.bashrc"; } 2>/dev/null || true
+[ -d "${DEVROOM_HOME}/workspace/.git" ] || su - "${DEVROOM_USER}" -c "git clone \"${DEVROOM_REMOTE}\" \"${DEVROOM_HOME}/workspace\""
+{ echo '. ~/.bashrc 2>/dev/null'; echo "PS1='${DEVROOM_NICK}% '"; echo 'cd ~/workspace'; } > "${DEVROOM_HOME}/.bash_profile"
+chown "${DEVROOM_UID}:${DEVROOM_GID}" "${DEVROOM_HOME}/.bash_profile"
+exec su - "${DEVROOM_USER}"
+`
+
+	runArgs = append(runArgs, baseImage, "bash", "-c", initScript)
 
 	c := exec.Command(runtime, runArgs...)
 	c.Stdin = os.Stdin
@@ -142,13 +163,29 @@ func resumeEntry(runtime, containerName, nickname string) error {
 	return execShell(runtime, containerName, nickname)
 }
 
-// execShell opens an interactive shell in a running container.
+// execShell opens an interactive shell in a running container as the
+// host user (matched by UID/GID), starting in ~/workspace.
 func execShell(runtime, containerName, nickname string) error {
+	u, err := user.Current()
+	if err != nil {
+		return err
+	}
+	home := u.HomeDir
+	devroomRc := home + "/.devroom_rc"
+
+	// Write .devroom_rc then exec bash with it as the init file.
+	// Source /etc/profile first so PATH includes /usr/local/go/bin etc.
 	setup := fmt.Sprintf(
-		`printf '. /root/.bashrc 2>/dev/null\nPS1="%s%%%% "\n' > /root/.devroom_rc && exec bash --init-file /root/.devroom_rc -i`,
-		nickname,
+		`{ echo '. /etc/profile 2>/dev/null'; echo '. ~/.bashrc 2>/dev/null'; echo "PS1='%s%% '"; echo 'cd ~/workspace'; } > %s && exec bash --init-file %s -i`,
+		nickname, devroomRc, devroomRc,
 	)
-	c := exec.Command(runtime, "exec", "-it", containerName, "bash", "-c", setup)
+
+	c := exec.Command(runtime, "exec", "-it",
+		"--user", u.Uid+":"+u.Gid,
+		"-e", "HOME="+home,
+		containerName,
+		"bash", "-c", setup,
+	)
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
@@ -156,13 +193,14 @@ func execShell(runtime, containerName, nickname string) error {
 }
 
 // forgeCredentialMount returns the -v mount string for the detected forge tool,
-// or "" if the forge is not recognised.
+// or "" if the forge is not recognised. The mount target matches the host path
+// so the user identity inside the container sees the same paths as on the host.
 func forgeCredentialMount(remoteURL, home string) string {
 	switch {
 	case strings.Contains(remoteURL, "github.com"):
-		return home + "/.config/gh:/root/.config/gh:ro"
+		return home + "/.config/gh:" + home + "/.config/gh:ro"
 	case strings.Contains(remoteURL, "gitlab"):
-		return home + "/.config/glab:/root/.config/glab:ro"
+		return home + "/.config/glab:" + home + "/.config/glab:ro"
 	default:
 		return ""
 	}
