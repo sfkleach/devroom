@@ -68,22 +68,6 @@ cat > /etc/profile.d/devroom-path.sh << 'EOF'
 export PATH="/usr/local/go/bin:${HOME}/go/bin:${HOME}/.local/bin:$PATH"
 EOF
 
-# Claude Code CLI.
-if command -v claude >/dev/null 2>&1; then
-    echo "==> Claude Code already installed ($(claude --version 2>&1 | head -1))."
-else
-    echo "==> Installing Claude Code CLI..."
-    curl -L https://claude.ai/install.sh | bash -s -- --force
-    echo "==> Claude Code installed."
-fi
-
-# Make claude available system-wide so non-root container users can run it.
-if [ -f "${HOME}/.local/bin/claude" ] && [ ! -f /usr/local/bin/claude ]; then
-    cp "${HOME}/.local/bin/claude" /usr/local/bin/claude
-    chmod 755 /usr/local/bin/claude
-    echo "==> Claude Code copied to /usr/local/bin/claude."
-fi
-
 echo ""
 echo "All prerequisites installed. You can now build with:"
 echo "  go build ./..."

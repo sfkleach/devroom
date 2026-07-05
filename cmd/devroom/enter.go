@@ -135,6 +135,12 @@ func firstEntry(runtime, containerName, baseImage, host, httpsRemote, token stri
 		"-v", home + "/.claude:" + home + "/.claude",
 	}
 
+	// Mount the host's claude binary so the container gets the same version
+	// without needing to install it during the image build.
+	if claudePath, err := exec.LookPath("claude"); err == nil {
+		runArgs = append(runArgs, "-v", claudePath+":/usr/local/bin/claude:ro")
+	}
+
 	if runtime == "podman" {
 		// Under rootless Podman, container UIDs are remapped through the
 		// subuid range by default, so a container process running as
