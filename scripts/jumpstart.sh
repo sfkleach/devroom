@@ -73,7 +73,7 @@ if command -v claude >/dev/null 2>&1; then
     echo "==> Claude Code already installed ($(claude --version 2>&1 | head -1))."
 else
     echo "==> Installing Claude Code CLI..."
-    curl -L https://claude.ai/install.sh | bash
+    curl -L https://claude.ai/install.sh | bash -s -- --force
     echo "==> Claude Code installed."
 fi
 
