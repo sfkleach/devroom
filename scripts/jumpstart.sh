@@ -29,6 +29,7 @@ $SUDO apt-get -qq install -y \
     python3 \
     jq \
     unzip \
+    vim-tiny \
     >/dev/null
 
 # Go: install via official tarball if not present or below minimum version.

@@ -99,7 +99,7 @@ func generateContainerfile(cfg *config.Config) string {
 // apt repositories. This assumes a Debian/Ubuntu base image, consistent with
 // jumpstart.sh's own requirement of apt-get.
 const forgeToolsInstall = `RUN apt-get update -qq \
-    && apt-get install -y -qq --no-install-recommends curl ca-certificates \
+    && apt-get install -y -qq --no-install-recommends curl ca-certificates sudo \
     && mkdir -p -m 755 /etc/apt/keyrings \
     && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
     && chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg \
@@ -109,7 +109,6 @@ const forgeToolsInstall = `RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends gh glab \
     && rm -rf /var/lib/apt/lists/*
 `
-
 
 func copyFile(src, dst string) error {
 	in, err := os.Open(src)

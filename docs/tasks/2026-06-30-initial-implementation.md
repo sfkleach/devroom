@@ -71,7 +71,11 @@ image, using the repo in the current folder to implicitly supply the repo's
 forge, organisation and project. It should accept options `--name` and
 `--branch`.
 
-- `-n,--name NAME` sets the name of the room that will be created. The
+```
+devroom new [OPTIONS] <nickname>
+```
+
+- `<nickname>` sets the name of the room that will be created. The
   intention is this is a nickname for the feature/fix and a suitable branch
   name.
 - `-b,--branch` if present, creates and checks out a feature branch with the
@@ -99,3 +103,7 @@ We also need to set up a suitable prompt, so the rooms are easily distinguished.
 And we need to distinguish first entry and subsequent re-entries. 
 
 - See docs/devroom-proposal.md, "Re-entry (container stopped)"
+
+## Step 7: close subcommand
+
+Implement the `close` subcommand that stops and removes the named room.
