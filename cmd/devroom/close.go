@@ -1,0 +1,86 @@
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"os/exec"
+
+	"github.com/sfkleach/devroom/internal/config"
+	devgit "github.com/sfkleach/devroom/internal/git"
+	"github.com/spf13/cobra"
+)
+
+var closeCmd = &cobra.Command{
+	Use:   "close <nickname>",
+	Short: "Stop and delete a devroom's container (base image kept)",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runClose,
+}
+
+func init() {
+	rootCmd.AddCommand(closeCmd)
+}
+
+func runClose(cmd *cobra.Command, args []string) error {
+	nickname := args[0]
+
+	root, err := effectiveRootDir()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load(root)
+	if err != nil {
+		if errors.Is(err, config.ErrNoConfig) {
+			fmt.Fprintln(os.Stderr, "No devroom configuration file found.")
+			fmt.Fprintln(os.Stderr, "Hint: run 'devroom init' to create one.")
+			os.Exit(1)
+		}
+		return err
+	}
+
+	if cfg.Runtime == "" {
+		return fmt.Errorf("missing required config key 'runtime' in devroom.toml")
+	}
+
+	remoteURL, err := devgit.RemoteOrigin(root)
+	if err != nil {
+		return fmt.Errorf("reading git remote: %w", err)
+	}
+	owner, repo, err := devgit.OwnerRepo(remoteURL)
+	if err != nil {
+		return err
+	}
+
+	containerName := fmt.Sprintf("devroom-%s-%s-%s", owner, repo, nickname)
+
+	state, err := containerState(cfg.Runtime, containerName)
+	if err != nil {
+		return err
+	}
+	if state == "" {
+		return fmt.Errorf("no room named %q (container %q does not exist)", nickname, containerName)
+	}
+
+	if state == "running" {
+		fmt.Printf("==> Stopping room %q ...\n", containerName)
+		stop := exec.Command(cfg.Runtime, "stop", containerName)
+		stop.Stdout = os.Stdout
+		stop.Stderr = os.Stderr
+		if err := stop.Run(); err != nil {
+			return fmt.Errorf("stopping container: %w", err)
+		}
+	}
+
+	fmt.Printf("==> Removing room %q ...\n", containerName)
+	rm := exec.Command(cfg.Runtime, "rm", containerName)
+	rm.Stdout = os.Stdout
+	rm.Stderr = os.Stderr
+	if err := rm.Run(); err != nil {
+		return fmt.Errorf("removing container: %w", err)
+	}
+
+	fmt.Printf("==> Room %q closed.\n", nickname)
+	return nil
+}
