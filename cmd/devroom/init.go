@@ -51,8 +51,30 @@ func runInit(cmd *cobra.Command, args []string) error {
 	if err := os.WriteFile(configPath, []byte(content), 0644); err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
-
 	fmt.Printf("Created %s\n", configPath)
+
+	configDir := filepath.Dir(configPath)
+	if err := writeIfAbsent(filepath.Join(configDir, "build.sh"), buildScriptTemplate); err != nil {
+		return err
+	}
+	if err := writeIfAbsent(filepath.Join(configDir, "enter.sh"), enterScriptTemplate); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// writeIfAbsent writes content to path unless a file already exists there,
+// in which case it leaves it untouched and reports the fact.
+func writeIfAbsent(path, content string) error {
+	if _, err := os.Stat(path); err == nil {
+		fmt.Printf("%s already exists — not overwriting.\n", path)
+		return nil
+	}
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("writing %s: %w", path, err)
+	}
+	fmt.Printf("Created %s\n", path)
 	return nil
 }
 
@@ -107,14 +129,87 @@ base_image = "ubuntu:latest"
 # At the time of writing only Claude is supported.
 summary_model = "claude sonnet 4.5"
 
-# Uncomment this to run a script during 'devroom build', baked into the
-# shared base image (installing tools, etc.). Defaults to
-# ~/.config/devroom/build.sh if unset.
-# build_script = "scripts/build.sh"
+# Runs during 'devroom build', baked into the shared base image. Delete
+# .config/devroom/build.sh (and this line) to skip this step entirely.
+build_script = ".config/devroom/build.sh"
 
-# Uncomment this to source a shell snippet during 'devroom enter', just
-# before the interactive shell starts (prompt tools, aliases, etc.).
-# Defaults to ~/.config/devroom/enter.sh if unset.
-# enter_script = "~/.config/devroom/enter.sh"
+# Sourced during 'devroom enter', just before the interactive shell starts.
+# Delete .config/devroom/enter.sh (and this line) to skip this step entirely.
+enter_script = ".config/devroom/enter.sh"
 `, runtime)
 }
+
+// buildScriptTemplate is the starter build_script scaffolded by `devroom
+// init`. Every real command in it is commented out; it exists to show where
+// project-specific toolchain installs go and to make clear it's safe to
+// delete.
+const buildScriptTemplate = `#!/usr/bin/env bash
+# This is devroom's build_script (see devroom.toml): it runs once during
+# 'devroom build', baked into the shared base image used by every room in
+# this repo.
+#
+# It's entirely optional. Delete this file (and the build_script line in
+# devroom.toml) and devroom simply skips this step — nothing else depends
+# on it existing.
+#
+# Everything below is commented out: starter commands for some popular
+# toolchains on an Ubuntu/apt-based base image. Uncomment whichever this
+# project actually needs.
+set -euo pipefail
+
+# --- C/C++ ---
+# apt-get update -qq
+# apt-get install -y -qq --no-install-recommends build-essential cmake
+
+# --- Node.js, via fnm ---
+# curl -fsSL https://fnm.vercel.app/install | bash -s -- --install-dir /usr/local/fnm --skip-shell
+# export PATH="/usr/local/fnm:$PATH"
+# eval "$(fnm env)"
+# fnm install --lts
+
+# --- Python, via uv ---
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+# ~/.local/bin/uv python install 3.12
+
+# --- Go ---
+# curl -fsSL https://go.dev/dl/go1.24.2.linux-amd64.tar.gz -o /tmp/go.tar.gz
+# tar -C /usr/local -xzf /tmp/go.tar.gz
+
+# --- Rust ---
+# curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+`
+
+// enterScriptTemplate is the starter enter_script scaffolded by `devroom
+// init`, matching the toolchains suggested in buildScriptTemplate.
+const enterScriptTemplate = `# This is devroom's enter_script (see devroom.toml): it is sourced inside
+# the room, once per 'devroom enter'/'devroom new', just before the
+# interactive shell starts. Use it for env vars, aliases, and prompt setup
+# that belong in a shell session rather than baked into the image.
+#
+# It's entirely optional. Delete this file (and the enter_script line in
+# devroom.toml) and devroom falls back to its default minimal prompt
+# ("<nickname>% ") — nothing else depends on it existing.
+#
+# Everything below is commented out: starter commands matching the
+# toolchains suggested in build.sh. Uncomment whichever this project
+# actually needs.
+
+# --- C/C++ ---
+# (nothing to source once build-essential/cmake are installed)
+
+# --- Node.js, via fnm ---
+# export PATH="/usr/local/fnm:$PATH"
+# eval "$(fnm env --use-on-cd)"
+
+# --- Python, via uv ---
+# export PATH="$HOME/.local/bin:$PATH"
+
+# --- Go ---
+# export PATH="/usr/local/go/bin:$HOME/go/bin:$PATH"
+
+# --- Rust ---
+# source "$HOME/.cargo/env"
+
+# --- Prompt ---
+# export PS1="${DEVROOM_NICKNAME}% "
+`
