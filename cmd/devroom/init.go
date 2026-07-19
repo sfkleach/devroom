@@ -13,7 +13,7 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Create an initial .config/devroom/devroom.toml",
+	Short: "Scaffold .config/devroom/devroom.toml, build.sh, and enter.sh",
 	RunE:  runInit,
 }
 

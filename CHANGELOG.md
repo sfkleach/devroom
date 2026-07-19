@@ -6,7 +6,7 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 
 ### Added
 
-- `devroom init` — scaffold a `.config/devroom/devroom.toml` for the current repo.
+- `devroom init` — scaffold `.config/devroom/devroom.toml`, `build.sh`, and `enter.sh` for the current repo, the latter two pre-populated with commented-out starter commands for common toolchains (C/C++, Node via fnm, Python via uv, Go, Rust).
 - `devroom build` — generate a Containerfile and build the shared base image, installing `gh`/`glab` and running an optional `build_script`.
 - `devroom new` — create a new room container, optionally checking out a fresh feature branch (`-b`).
 - `devroom enter` — enter or resume a room's interactive shell; on first entry, detects the git forge, authenticates, and clones the repo.
