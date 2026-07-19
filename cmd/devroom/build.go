@@ -62,14 +62,18 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	}
 	defer os.RemoveAll(tmpDir)
 
-	if cfg.JumpstartScript != "" {
-		src := filepath.Join(root, cfg.JumpstartScript)
-		if err := copyFile(src, filepath.Join(tmpDir, "jumpstart.sh")); err != nil {
-			return fmt.Errorf("copying jumpstart script: %w", err)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	buildScriptPath := resolveHostScript(cfg.BuildScript, root, home, "build.sh")
+	if buildScriptPath != "" {
+		if err := copyFile(buildScriptPath, filepath.Join(tmpDir, "build.sh")); err != nil {
+			return fmt.Errorf("copying build script: %w", err)
 		}
 	}
 
-	containerfile := generateContainerfile(cfg)
+	containerfile := generateContainerfile(cfg, buildScriptPath != "")
 	if err := os.WriteFile(filepath.Join(tmpDir, "Containerfile"), []byte(containerfile), 0644); err != nil {
 		return err
 	}
@@ -82,22 +86,22 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	return c.Run()
 }
 
-func generateContainerfile(cfg *config.Config) string {
+func generateContainerfile(cfg *config.Config, hasBuildScript bool) string {
 	cf := fmt.Sprintf("FROM %s\n\nENV DEBIAN_FRONTEND=noninteractive\n", cfg.BaseImage)
 	// gh and glab are hard dependencies: devroom authenticates git clones
 	// inside the room using whichever forge CLI matches the origin host,
 	// instead of relying on SSH keys/agent forwarding. Install them before
-	// the project's own jumpstart script so it can assume they are present.
+	// the project's own build script so it can assume they are present.
 	cf += "\n" + forgeToolsInstall
-	if cfg.JumpstartScript != "" {
-		cf += "\nCOPY jumpstart.sh /tmp/jumpstart.sh\nRUN bash /tmp/jumpstart.sh\n"
+	if hasBuildScript {
+		cf += "\nCOPY build.sh /tmp/build.sh\nRUN bash /tmp/build.sh\n"
 	}
 	return cf
 }
 
 // forgeToolsInstall installs the GitHub and GitLab CLIs via their official
 // apt repositories. This assumes a Debian/Ubuntu base image, consistent with
-// jumpstart.sh's own requirement of apt-get.
+// build.sh's own requirement of apt-get.
 const forgeToolsInstall = `RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends curl ca-certificates sudo \
     && mkdir -p -m 755 /etc/apt/keyrings \

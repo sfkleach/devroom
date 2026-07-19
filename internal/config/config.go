@@ -16,8 +16,9 @@ var ErrNoConfig = errors.New("no configuration file found")
 type Config struct {
 	Runtime         string `toml:"runtime"`
 	BaseImage       string `toml:"base_image"`
-	JumpstartScript string `toml:"jumpstart_script"`
+	BuildScript     string `toml:"build_script"`
 	SummaryModel    string `toml:"summary_model"`
+	EnterScript     string `toml:"enter_script"`
 }
 
 // Load reads and merges configuration from the three XDG levels:

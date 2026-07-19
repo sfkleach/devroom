@@ -7,7 +7,7 @@ presents a TUI menu for managing persistent containerised development environmen
 ("rooms"), each tied to a feature branch. It:
 
 1. Detects the repo identity from `git remote` and derives image/container names
-2. Builds a base image if one does not exist, using the repo's `jumpstart_script`
+2. Builds a base image if one does not exist, using the repo's `build_script`
 3. Creates or resumes room containers on demand, with standard credential mounts
 
 ## Architecture: two tiers
@@ -17,7 +17,7 @@ presents a TUI menu for managing persistent containerised development environmen
 
 | Tier | What it is | Lifecycle |
 |---|---|---|
-| **Base image** | OS + tools from `jumpstart_script` | Built once per project; destroyed explicitly with `X` or `devroom destroy` |
+| **Base image** | OS + tools from `build_script` | Built once per project; destroyed explicitly with `X` or `devroom destroy` |
 | **Room container** | Clone of repo checked out to the room's branch | Created on first entry; persists across reboots; destroyed explicitly with `Q` or `devroom destroy` |
 
 The base image is shared across all rooms in a project. Room containers are
@@ -84,7 +84,8 @@ added to `.gitignore` (personal overrides).
 |---|---|---|
 | `runtime` | `podman` | Container engine to use: `podman` or `docker` |
 | `base_image` | `ubuntu:24.04` | Base OS image for the generated `Containerfile` |
-| `jumpstart_script` | `scripts/jumpstart.sh` | Repo-relative path to the prerequisite install script |
+| `build_script` | `~/.config/devroom/build.sh` | Path to the prerequisite install script, run during `devroom build` |
+| `enter_script` | `~/.config/devroom/enter.sh` | Path to a shell snippet sourced during `devroom enter`, before the interactive shell starts |
 | `summary_model` | `claude -p {}` | Command used inside the container to generate AI summaries |
 
 ### Example config file
@@ -92,7 +93,7 @@ added to `.gitignore` (personal overrides).
 ```toml
 runtime = "podman"
 base_image = "ubuntu:22.04"
-jumpstart_script = "scripts/jumpstart.sh"
+build_script = "scripts/build.sh"
 summary_model = "claude"
 ```
 
@@ -110,7 +111,7 @@ This keeps room state across reboots without polluting the repository.
 ## Build flow (base image)
 
 The tool generates a `Containerfile` on the fly (no file committed to the repo),
-using `base_image` and `jumpstart_script` from resolved configuration. The base
+using `base_image` and `build_script` from resolved configuration. The base
 image installs tools only — it does not clone the repo.
 
 ```dockerfile
@@ -118,8 +119,8 @@ FROM <base_image>
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-COPY jumpstart.sh /tmp/jumpstart.sh
-RUN bash /tmp/jumpstart.sh
+COPY build.sh /tmp/build.sh
+RUN bash /tmp/build.sh
 ```
 
 Built with:
@@ -133,7 +134,7 @@ The base image is rebuilt if:
 - No base image exists yet
 - `X` is pressed in the TUI (explicit destroy + rebuild on next entry)
 - `devroom destroy` is run, followed by a new room entry
-- The resolved `jumpstart_script` is newer than the image (checked via
+- The resolved `build_script` is newer than the image (checked via
   `<runtime> image inspect` creation time vs file mtime)
 
 ## Room container lifecycle

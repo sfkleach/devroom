@@ -38,6 +38,6 @@ login of the same CLI inside the container. The token is never passed as a
 container environment variable or CLI argument, so it isn't persisted in
 `podman`/`docker inspect` output or visible via `ps` on the host. `gh`/`glab`
 are hard dependencies of the base image (installed automatically before your
-`jumpstart_script` runs) — see
+`build_script` runs) — see
 [docs/decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding](docs/decisions/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding/0000-forge-cli-token-auth-instead-of-ssh-agent-forwarding.md)
 for the full rationale.

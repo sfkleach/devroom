@@ -82,7 +82,7 @@ func runEnter(cmd *cobra.Command, args []string) error {
 		}
 		httpsRemote := devgit.HTTPSRemote(host, owner, repo)
 		fmt.Printf("==> First entry: creating room %q ...\n", containerName)
-		return firstEntry(cfg.Runtime, containerName, baseImage, host, httpsRemote, token, f, nickname)
+		return firstEntry(cfg, root, containerName, baseImage, host, httpsRemote, token, f, nickname)
 	case "running":
 		return execShell(cfg.Runtime, containerName, nickname)
 	default:
@@ -113,7 +113,8 @@ func containerState(runtime, name string) (string, error) {
 // forge login token can be piped over a dedicated stdin without disturbing
 // the real terminal stdin that the final interactive shell needs for proper
 // raw-mode TTY behaviour.
-func firstEntry(runtime, containerName, baseImage, host, httpsRemote, token string, f forge, nickname string) error {
+func firstEntry(cfg *config.Config, root, containerName, baseImage, host, httpsRemote, token string, f forge, nickname string) error {
+	runtime := cfg.Runtime
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -140,6 +141,8 @@ func firstEntry(runtime, containerName, baseImage, host, httpsRemote, token stri
 	if claudePath, err := exec.LookPath("claude"); err == nil {
 		runArgs = append(runArgs, "-v", claudePath+":/usr/local/bin/claude:ro")
 	}
+
+	runArgs = append(runArgs, enterScriptMountArgs(cfg, root, home)...)
 
 	if runtime == "podman" {
 		// Under rootless Podman, container UIDs are remapped through the
@@ -228,14 +231,18 @@ func execShell(runtime, containerName, nickname string) error {
 
 	// Write .devroom_rc then exec bash with it as the init file.
 	// Source /etc/profile first so PATH includes /usr/local/go/bin etc.
+	// If a host enter_script was mounted (see scripts.go), source it so it
+	// can set its own prompt/aliases; otherwise fall back to a minimal
+	// prompt naming the room.
 	setup := fmt.Sprintf(
-		`{ echo '. /etc/profile 2>/dev/null'; echo '. ~/.bashrc 2>/dev/null'; echo "PS1='%s%% '"; echo 'cd ~/workspace'; } > %s && exec bash --init-file %s -i`,
-		nickname, devroomRc, devroomRc,
+		`{ echo '. /etc/profile 2>/dev/null'; echo '. ~/.bashrc 2>/dev/null'; echo 'if [ -f %s ]; then . %s; else PS1="%s%% "; fi'; echo 'cd ~/workspace'; } > %s && exec bash --init-file %s -i`,
+		containerEnterScriptPath, containerEnterScriptPath, nickname, devroomRc, devroomRc,
 	)
 
 	c := exec.Command(runtime, "exec", "-it",
 		"--user", u.Uid+":"+u.Gid,
 		"-e", "HOME="+home,
+		"-e", "DEVROOM_NICKNAME="+nickname,
 		containerName,
 		"bash", "-c", setup,
 	)

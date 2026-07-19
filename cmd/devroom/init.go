@@ -107,7 +107,14 @@ base_image = "ubuntu:latest"
 # At the time of writing only Claude is supported.
 summary_model = "claude sonnet 4.5"
 
-# Uncomment this to add an initial script for loading useful tools etc.
-# jumpstart_script = "scripts/jumpstart.sh"
+# Uncomment this to run a script during 'devroom build', baked into the
+# shared base image (installing tools, etc.). Defaults to
+# ~/.config/devroom/build.sh if unset.
+# build_script = "scripts/build.sh"
+
+# Uncomment this to source a shell snippet during 'devroom enter', just
+# before the interactive shell starts (prompt tools, aliases, etc.).
+# Defaults to ~/.config/devroom/enter.sh if unset.
+# enter_script = "~/.config/devroom/enter.sh"
 `, runtime)
 }
