@@ -63,9 +63,22 @@ func runClose(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("no room named %q (container %q does not exist)", nickname, containerName)
 	}
 
+	if err := stopAndRemoveContainer(cfg.Runtime, containerName, state); err != nil {
+		return err
+	}
+
+	fmt.Printf("==> Room %q closed.\n", nickname)
+	return nil
+}
+
+// stopAndRemoveContainer stops containerName if it's running, then removes
+// it. state is the container's current State.Status (as returned by
+// containerState), passed in so callers that already know it don't need a
+// redundant inspect.
+func stopAndRemoveContainer(runtime, containerName, state string) error {
 	if state == "running" {
 		fmt.Printf("==> Stopping room %q ...\n", containerName)
-		stop := exec.Command(cfg.Runtime, "stop", containerName)
+		stop := exec.Command(runtime, "stop", containerName)
 		stop.Stdout = os.Stdout
 		stop.Stderr = os.Stderr
 		if err := stop.Run(); err != nil {
@@ -74,13 +87,11 @@ func runClose(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Printf("==> Removing room %q ...\n", containerName)
-	rm := exec.Command(cfg.Runtime, "rm", containerName)
+	rm := exec.Command(runtime, "rm", containerName)
 	rm.Stdout = os.Stdout
 	rm.Stderr = os.Stderr
 	if err := rm.Run(); err != nil {
 		return fmt.Errorf("removing container: %w", err)
 	}
-
-	fmt.Printf("==> Room %q closed.\n", nickname)
 	return nil
 }
