@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -19,6 +20,7 @@ import (
 var listStatistics bool
 var listBranch bool
 var listImage bool
+var listFormat string
 
 var listCmd = &cobra.Command{
 	Use:   "list",
@@ -31,10 +33,24 @@ func init() {
 	listCmd.Flags().BoolVarP(&listStatistics, "statistics", "s", false, "Include container statistics (state, built, last entered, size)")
 	listCmd.Flags().BoolVarP(&listBranch, "branch", "b", false, "Include the room's current branch")
 	listCmd.Flags().BoolVarP(&listImage, "image", "i", false, "Include the image the room's container was built from, and whether it's current")
+	listCmd.Flags().StringVarP(&listFormat, "format", "f", "", `Output format: "json" or "md" (default: plain text)`)
 	rootCmd.AddCommand(listCmd)
 }
 
+// listColumn pairs a column's display header (used in text/md output) with
+// its JSON key.
+type listColumn struct {
+	header string
+	key    string
+}
+
 func runList(cmd *cobra.Command, args []string) error {
+	switch listFormat {
+	case "", "json", "md":
+	default:
+		return fmt.Errorf(`invalid --format %q: must be "json" or "md"`, listFormat)
+	}
+
 	root, err := effectiveRootDir()
 	if err != nil {
 		return err
@@ -69,32 +85,44 @@ func runList(cmd *cobra.Command, args []string) error {
 	}
 
 	if len(nicknames) == 0 {
-		fmt.Println("No rooms found for this repo.")
+		if listFormat == "json" {
+			fmt.Println("[]")
+		} else {
+			fmt.Println("No rooms found for this repo.")
+		}
 		return nil
 	}
 
-	if !listBranch && !listStatistics && !listImage {
+	// The bare-nickname shortcut (no header, no extra columns) only applies
+	// to the default text format; -f json/md always produce a structured
+	// one-column result so the output shape doesn't depend on which other
+	// flags happen to be set.
+	if listFormat == "" && !listBranch && !listStatistics && !listImage {
 		for _, nickname := range nicknames {
 			fmt.Println(nickname)
 		}
 		return nil
 	}
 
-	header := []string{"NICKNAME"}
+	columns := []listColumn{{"NICKNAME", "nickname"}}
 	if listBranch {
-		header = append(header, "BRANCH")
+		columns = append(columns, listColumn{"BRANCH", "branch"})
 	}
 	if listStatistics {
-		header = append(header, "STATE", "BUILT", "LAST ENTERED", "SIZE")
+		columns = append(columns,
+			listColumn{"STATE", "state"},
+			listColumn{"BUILT", "built"},
+			listColumn{"LAST ENTERED", "lastEntered"},
+			listColumn{"SIZE", "size"},
+		)
 	}
 	if listImage {
-		header = append(header, "IMAGE")
+		columns = append(columns, listColumn{"IMAGE", "image"})
 	}
 
 	baseImage := fmt.Sprintf("localhost/dev-%s-%s:base", owner, repo)
 
-	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
-	fmt.Fprintln(tw, strings.Join(header, "\t"))
+	rows := make([][]string, 0, len(nicknames))
 	for _, nickname := range nicknames {
 		containerName := fmt.Sprintf("devroom-%s-%s-%s", owner, repo, nickname)
 		row := []string{nickname}
@@ -119,9 +147,92 @@ func runList(cmd *cobra.Command, args []string) error {
 			}
 			row = append(row, image)
 		}
+		rows = append(rows, row)
+	}
+
+	switch listFormat {
+	case "json":
+		return printListJSON(columns, rows)
+	case "md":
+		printListMarkdown(columns, rows)
+		return nil
+	default:
+		printListText(columns, rows)
+		return nil
+	}
+}
+
+// printListText renders rows as a tabwriter-aligned plain-text table.
+func printListText(columns []listColumn, rows [][]string) {
+	tw := tabwriter.NewWriter(os.Stdout, 0, 2, 2, ' ', 0)
+	fmt.Fprintln(tw, strings.Join(headers(columns), "\t"))
+	for _, row := range rows {
 		fmt.Fprintln(tw, strings.Join(row, "\t"))
 	}
-	return tw.Flush()
+	tw.Flush()
+}
+
+// printListMarkdown renders rows as a GitHub-flavoured markdown table,
+// space-padded so it stays visually aligned in a fixed-width font.
+func printListMarkdown(columns []listColumn, rows [][]string) {
+	widths := make([]int, len(columns))
+	for i, c := range columns {
+		widths[i] = len(c.header)
+	}
+	for _, row := range rows {
+		for i, v := range row {
+			if len(v) > widths[i] {
+				widths[i] = len(v)
+			}
+		}
+	}
+
+	printMarkdownRow := func(cells []string) {
+		var sb strings.Builder
+		sb.WriteString("|")
+		for i, cell := range cells {
+			sb.WriteString(" ")
+			sb.WriteString(cell)
+			sb.WriteString(strings.Repeat(" ", widths[i]-len(cell)))
+			sb.WriteString(" |")
+		}
+		fmt.Println(sb.String())
+	}
+
+	printMarkdownRow(headers(columns))
+
+	separators := make([]string, len(columns))
+	for i, w := range widths {
+		separators[i] = strings.Repeat("-", w)
+	}
+	printMarkdownRow(separators)
+
+	for _, row := range rows {
+		printMarkdownRow(row)
+	}
+}
+
+// printListJSON renders rows as a JSON array of objects keyed by column.
+func printListJSON(columns []listColumn, rows [][]string) error {
+	objs := make([]map[string]string, 0, len(rows))
+	for _, row := range rows {
+		obj := make(map[string]string, len(columns))
+		for i, c := range columns {
+			obj[c.key] = row[i]
+		}
+		objs = append(objs, obj)
+	}
+	enc := json.NewEncoder(os.Stdout)
+	enc.SetIndent("", "  ")
+	return enc.Encode(objs)
+}
+
+func headers(columns []listColumn) []string {
+	h := make([]string, len(columns))
+	for i, c := range columns {
+		h[i] = c.header
+	}
+	return h
 }
 
 // listRoomNicknames returns the nicknames of every room container (running
