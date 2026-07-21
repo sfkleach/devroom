@@ -133,15 +133,9 @@ func firstEntry(cfg *config.Config, root, containerName, baseImage, host, httpsR
 		"-e", "DEVROOM_GID=" + u.Gid,
 		"-e", "DEVROOM_USER=" + u.Username,
 		"-e", "DEVROOM_HOME=" + home,
-		"-v", home + "/.claude:" + home + "/.claude",
 	}
 
-	// Mount the host's claude binary so the container gets the same version
-	// without needing to install it during the image build.
-	if claudePath, err := exec.LookPath("claude"); err == nil {
-		runArgs = append(runArgs, "-v", claudePath+":/usr/local/bin/claude:ro")
-	}
-
+	runArgs = append(runArgs, aiRunArgs(cfg, home)...)
 	runArgs = append(runArgs, enterScriptMountArgs(cfg, root, home)...)
 
 	if runtime == "podman" {

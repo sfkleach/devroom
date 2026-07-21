@@ -119,6 +119,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if _, err := os.Stat(hostGitconfig); err == nil {
 		runArgs = append(runArgs, "-v", hostGitconfig+":"+containerGitconfigHostRO+":ro")
 	}
+	runArgs = append(runArgs, aiRunArgs(cfg, home)...)
 	runArgs = append(runArgs, enterScriptMountArgs(cfg, root, home)...)
 	runArgs = append(runArgs, baseImage, "sleep", "infinity")
 

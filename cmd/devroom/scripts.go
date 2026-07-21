@@ -49,3 +49,35 @@ func enterScriptMountArgs(cfg *config.Config, root, home string) []string {
 	}
 	return []string{"-v", hostPath + ":" + containerEnterScriptPath + ":ro"}
 }
+
+// expandHome expands a leading "~/" against home; other paths pass through
+// unchanged (credential_paths are host paths, not repo-relative).
+func expandHome(path, home string) string {
+	if strings.HasPrefix(path, "~/") {
+		return filepath.Join(home, path[2:])
+	}
+	return path
+}
+
+// aiRunArgs returns the podman/docker run args that bind-mount each enabled
+// [[ai]] entry's credential_paths (rw, same host path on both sides —
+// mirrors the previous rw ~/.claude mount) and forward its env var names as
+// bare "-e VARNAME" (docker/podman propagate the host's current value).
+// Shared between enter.go's firstEntry and new.go's runNew so a room
+// created either way ends up with identical AI credentials mounted.
+func aiRunArgs(cfg *config.Config, home string) []string {
+	var args []string
+	for _, entry := range cfg.AI {
+		if !entry.IsEnabled() {
+			continue
+		}
+		for _, p := range entry.CredentialPaths {
+			hostPath := expandHome(p, home)
+			args = append(args, "-v", hostPath+":"+hostPath)
+		}
+		for _, v := range entry.Env {
+			args = append(args, "-e", v)
+		}
+	}
+	return args
+}

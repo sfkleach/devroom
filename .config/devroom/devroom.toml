@@ -4,8 +4,16 @@ runtime = "podman"
 # This can be any base image in the docker hub registry.
 base_image = "ubuntu:latest"
 
-# At the time of writing only Claude is supported.
-describe_model = "claude sonnet 4.5"
-
 # Runs during 'devroom build', baked into the shared base image.
 build_script = ".config/devroom/build.sh"
+
+# Which [[ai]] entry below backs 'devroom describe'. [[ai]] must stay last
+# in this file — in TOML, keys after a table header belong to that table.
+ai_default = "claude"
+
+[[ai]]
+name = "claude"
+# build.sh installs Node/npm via fnm before this runs (see build.sh).
+install_command = "npm install -g --prefix /usr/local @anthropic-ai/claude-code"
+credential_paths = ["~/.claude"]
+describe_command = "claude -p {}"

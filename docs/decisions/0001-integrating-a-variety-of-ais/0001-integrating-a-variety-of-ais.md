@@ -117,7 +117,20 @@ re-writing the config. `ai_default` must name an enabled entry.
 
 ## Additional Notes
 
-This record covers configuration and provisioning shape only. Implementing
-`devroom describe`, generalising `enter.go`/`new.go` to iterate `cfg.AI`
-instead of the hardcoded Claude mount, and updating `internal/config` are
-follow-up work, not yet started.
+Implemented: `internal/config` now has `AIEntry`/`AI`/`AIDefault` as
+described above; `build.go` emits an `install_command` `RUN` step per
+enabled entry; `enter.go`/`new.go` mount each enabled entry's
+`credential_paths`/`env` via a shared `aiRunArgs` helper instead of the
+hardcoded Claude mount; and `devroom describe` (`describe.go`) resolves
+`ai_default` and substitutes `{}` in its `describe_command`.
+
+**Amendment, 2026-07-21**: the Decision above orders `install_command`
+*before* the project's own `build_script`. In practice, Claude Code's
+`install_command` needs Node/npm, which no base image has by default —
+the only reasonable place to bootstrap that is `build_script` (it already
+serves as the general per-project toolchain installer for Node/Python/Go/
+Rust). So the implemented order is reversed: `forgeToolsInstall` →
+`build_script` → `install_command`. This trades away the original
+rationale (a project's `build_script` could assume the AI CLI already
+exists) for the more common case (an AI CLI's `install_command` can assume
+a `build_script`-installed toolchain exists).

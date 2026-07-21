@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
 	devgit "github.com/sfkleach/devroom/internal/git"
@@ -96,7 +97,25 @@ func generateContainerfile(cfg *config.Config, hasBuildScript bool) string {
 	if hasBuildScript {
 		cf += "\nCOPY build.sh /tmp/build.sh\nRUN bash /tmp/build.sh\n"
 	}
+	cf += aiInstallSteps(cfg)
 	return cf
+}
+
+// aiInstallSteps emits one "RUN <install_command>" line per enabled [[ai]]
+// entry with a non-empty install_command, so each AI CLI is baked into the
+// shared base image once at build time rather than per-room. Runs after
+// the project's own build_script, since an AI CLI's install_command may
+// depend on a toolchain build_script installs (e.g. Claude Code needing
+// Node/npm, which isn't present on a bare base image otherwise).
+func aiInstallSteps(cfg *config.Config) string {
+	var sb strings.Builder
+	for _, entry := range cfg.AI {
+		if !entry.IsEnabled() || entry.InstallCommand == "" {
+			continue
+		}
+		fmt.Fprintf(&sb, "\nRUN %s\n", entry.InstallCommand)
+	}
+	return sb.String()
 }
 
 // forgeToolsInstall installs the GitHub and GitLab CLIs via their official

@@ -86,15 +86,44 @@ added to `.gitignore` (personal overrides).
 | `base_image` | `ubuntu:24.04` | Base OS image for the generated `Containerfile` |
 | `build_script` | `~/.config/devroom/build.sh` | Path to the prerequisite install script, run during `devroom build` |
 | `enter_script` | `~/.config/devroom/enter.sh` | Path to a shell snippet sourced during `devroom enter`, before the interactive shell starts |
-| `describe_model` | `claude -p {}` | Command used inside the container to generate AI descriptions |
+| `ai_default` | (none) | Which `[[ai]]` entry backs `devroom describe` |
+
+Beyond these scalar keys, one or more `[[ai]]` tables describe the AI CLI
+integrations available in every room:
+
+| `[[ai]]` field | Description |
+|---|---|
+| `name` | Identifier referenced by `ai_default` |
+| `enabled` | Installed/mounted into every room unless set to `false` (default: `true`) |
+| `install_command` | Run once during `devroom build`, baked into the shared base image |
+| `credential_paths` | Host paths bind-mounted (rw) into every room at `enter`/`new` time |
+| `describe_command` | Command used inside the container to generate AI descriptions; `{}` is substituted with the description prompt |
+| `env` | Host environment variable names forwarded into every room |
 
 ### Example config file
+
+`install_command` runs *after* `build_script` (see Build flow below), so it
+can rely on a toolchain `build_script` installs — e.g. Claude Code needs
+Node/npm, which the base image has no other route to by default. `build_script`
+should symlink whatever it installs into `/usr/local/bin` rather than just
+exporting `PATH`: that's the one location guaranteed to be on `PATH` for
+every invocation style, including the non-interactive `bash -c` execs
+`devroom` itself uses (unlike `/etc/profile.d` or shell rc files, which only
+apply to login/interactive shells).
 
 ```toml
 runtime = "podman"
 base_image = "ubuntu:22.04"
 build_script = "scripts/build.sh"
-describe_model = "claude"
+ai_default = "claude"
+
+[[ai]]
+name = "claude"
+# build.sh installs Node/npm via fnm and symlinks them into /usr/local/bin
+# before this runs.
+install_command = "npm install -g --prefix /usr/local @anthropic-ai/claude-code"
+credential_paths = ["~/.claude"]
+describe_command = "claude -p {}"
 ```
 
 ## Room state
@@ -121,7 +150,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 COPY build.sh /tmp/build.sh
 RUN bash /tmp/build.sh
+
+RUN <install_command, for each enabled [[ai]] entry, in config order>
 ```
+
+Each `[[ai]]` entry's `install_command` runs after `build_script`, not
+before — it may depend on a toolchain `build_script` installs (see
+Configuration above).
 
 Built with:
 
@@ -210,12 +245,14 @@ Pressing `d` generates a fresh description for each room by exec-ing into the
 
 ```bash
 { git diff main..HEAD; echo "---"; cat CHANGELOG* 2>/dev/null; } \
-  | <describe_model> -p "Describe what this feature branch is implementing."
+  | <describe_command, with {} substituted for the description prompt>
 ```
 
-The description is generated fresh each time rather than cached, so it
-reflects current branch state. The `~/.claude` credential mount means no
-additional API keys are required in `devroom` configuration.
+`<describe_command>` comes from the `[[ai]]` entry named by `ai_default`
+(see Configuration above) — e.g. `claude -p {}`. The description is
+generated fresh each time rather than cached, so it reflects current branch
+state. That entry's `credential_paths` are already mounted into every room,
+so no additional API keys are required in `devroom` configuration.
 
 If the room's container is stopped, `devroom` starts it temporarily to
 generate the description, then stops it again.
@@ -246,7 +283,7 @@ These are also available as subcommands for scripting convenience.
 | `devroom new [--nickname <name>] [--branch <branch>]` | Create a new room. Prompts for any omitted values. |
 | `devroom enter <nickname>` | Enter the named room (start or resume its container). |
 | `devroom list` | Print all rooms for this repo with their branch and container state. |
-| `devroom describe [<nickname>]` | Print the AI-generated description for the named room, or all rooms if no nickname is given. |
+| `devroom describe <nickname> [-v...]` | Print the AI-generated description for the named room. Repeat `-v` for more detail. |
 | `devroom close <nickname>` | Stop and delete the named room's container (base image kept). |
 | `devroom destroy [-y]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-y` is passed. |
 
@@ -255,5 +292,5 @@ These are also available as subcommands for scripting convenience.
 1. **Binary location**: installed to `$GOBIN`; a personal tool, not committed to repos.
 2. **Branch-specific rooms**: each room maps to one branch; the base image is untagged by branch.
 3. **Persistent containers**: `--rm` is not used; containers survive reboots and are stopped/started across sessions.
-4. **Description runs inside the container**: leverages the existing `claude` CLI mount; no separate API key needed.
+4. **Description runs inside the container**: leverages the `ai_default` entry's existing `credential_paths` mount; no separate API key needed.
 5. **Config format**: TOML, three-level XDG hierarchy; per-repo file at `REPOROOT/.config/devroom/devroom.toml`.

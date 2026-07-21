@@ -88,7 +88,9 @@ d=$(mktmpgit)
 assert_file     "init creates .config/devroom/devroom.toml"  "$d/.config/devroom/devroom.toml"
 assert_contains "config has runtime key"       '^runtime '       "$d/.config/devroom/devroom.toml"
 assert_contains "config has base_image key"    '^base_image '    "$d/.config/devroom/devroom.toml"
-assert_contains "config has describe_model key" '^describe_model ' "$d/.config/devroom/devroom.toml"
+assert_contains "config has ai_default key"      '^ai_default '     "$d/.config/devroom/devroom.toml"
+assert_contains "config has [[ai]] block"        '^\[\[ai\]\]'      "$d/.config/devroom/devroom.toml"
+assert_contains "config has install_command key" 'install_command'  "$d/.config/devroom/devroom.toml"
 runtime=$(grep '^runtime' "$d/.config/devroom/devroom.toml" | sed 's/.*= *"\(.*\)"/\1/')
 if [[ "$runtime" == "docker" || "$runtime" == "podman" ]]; then
     pass "runtime value is docker or podman"
@@ -155,8 +157,63 @@ printf 'runtime = "podman"\n' > "$d/.config/devroom/devroom.toml"
 assert_output "build reports missing base_image key" "base_image" "$DEVROOM" build --rootdir "$d"
 
 # ===========================================================================
-# describe
+# describe — error paths
 # ===========================================================================
+
+# No config file at all
+d=$(mktmpgit)
+out=$("$DEVROOM" describe somenick --rootdir "$d" 2>&1) || true
+if echo "$out" | grep -q "No devroom configuration"; then
+    pass "describe reports missing config file"
+else
+    fail "describe reports missing config file (got: $out)"
+fi
+
+# Config present but runtime key missing
+d=$(mktmpgit)
+mkdir -p "$d/.config/devroom"
+printf 'base_image = "ubuntu:latest"\n' > "$d/.config/devroom/devroom.toml"
+assert_output "describe reports missing runtime key" "runtime" "$DEVROOM" describe somenick --rootdir "$d"
+
+# Runtime set, but ai_default entirely missing
+d=$(mktmpgit)
+mkdir -p "$d/.config/devroom"
+printf 'runtime = "docker"\n' > "$d/.config/devroom/devroom.toml"
+assert_output "describe reports missing ai_default key" "ai_default" "$DEVROOM" describe somenick --rootdir "$d"
+
+# ai_default names an unknown [[ai]] entry (none configured at all)
+d=$(mktmpgit)
+mkdir -p "$d/.config/devroom"
+printf 'runtime = "docker"\nai_default = "claude"\n' > "$d/.config/devroom/devroom.toml"
+assert_output "describe reports unknown ai_default entry" "claude" "$DEVROOM" describe somenick --rootdir "$d"
+
+# ai_default names a disabled [[ai]] entry
+d=$(mktmpgit)
+mkdir -p "$d/.config/devroom"
+cat > "$d/.config/devroom/devroom.toml" <<'EOF'
+runtime = "docker"
+ai_default = "claude"
+
+[[ai]]
+name = "claude"
+enabled = false
+describe_command = "claude -p {}"
+EOF
+assert_output "describe reports disabled ai_default entry" "disabled" "$DEVROOM" describe somenick --rootdir "$d"
+
+# Valid AI config, but the named room does not exist
+d=$(mktmpgit)
+git -C "$d" remote add origin https://github.com/example/testrepo.git
+mkdir -p "$d/.config/devroom"
+cat > "$d/.config/devroom/devroom.toml" <<'EOF'
+runtime = "docker"
+ai_default = "claude"
+
+[[ai]]
+name = "claude"
+describe_command = "claude -p {}"
+EOF
+assert_output "describe reports nonexistent room" "no room named" "$DEVROOM" describe nosuchroom --rootdir "$d"
 
 printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]
