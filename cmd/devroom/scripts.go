@@ -65,6 +65,12 @@ func expandHome(path, home string) string {
 // bare "-e VARNAME" (docker/podman propagate the host's current value).
 // Shared between enter.go's firstEntry and new.go's runNew so a room
 // created either way ends up with identical AI credentials mounted.
+//
+// A credential_paths entry that doesn't exist on the host is skipped rather
+// than passed through to a bind mount: some runtimes silently create an
+// empty directory at a missing bind-mount source, which is wrong when the
+// entry names a file (e.g. Claude Code's top-level ~/.claude.json, as
+// distinct from its ~/.claude/ directory).
 func aiRunArgs(cfg *config.Config, home string) []string {
 	var args []string
 	for _, entry := range cfg.AI {
@@ -73,6 +79,9 @@ func aiRunArgs(cfg *config.Config, home string) []string {
 		}
 		for _, p := range entry.CredentialPaths {
 			hostPath := expandHome(p, home)
+			if _, err := os.Stat(hostPath); err != nil {
+				continue
+			}
 			args = append(args, "-v", hostPath+":"+hostPath)
 		}
 		for _, v := range entry.Env {

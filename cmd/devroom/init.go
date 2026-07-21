@@ -149,7 +149,10 @@ name = "claude"
 # box — that's what the "Node.js, via fnm" section in build.sh is for; it
 # runs before install_command and symlinks node/npm into /usr/local/bin.
 install_command = "npm install -g --prefix /usr/local @anthropic-ai/claude-code"
-credential_paths = ["~/.claude"]
+# ~/.claude.json is Claude Code's top-level config file (OAuth account,
+# project trust state); ~/.claude/ is the separate directory alongside it
+# (settings, history, backups). Both are needed.
+credential_paths = ["~/.claude", "~/.claude.json"]
 describe_command = "claude -p {}"
 `, runtime)
 }
