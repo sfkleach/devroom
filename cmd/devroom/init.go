@@ -127,7 +127,7 @@ runtime = "%s"
 base_image = "ubuntu:latest"
 
 # At the time of writing only Claude is supported.
-summary_model = "claude sonnet 4.5"
+describe_model = "claude sonnet 4.5"
 
 # Runs during 'devroom build', baked into the shared base image. Delete
 # .config/devroom/build.sh (and this line) to skip this step entirely.

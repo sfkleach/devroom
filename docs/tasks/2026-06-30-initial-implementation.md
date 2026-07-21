@@ -39,7 +39,7 @@ runtime = "podman"
 base_image = "ubuntu:latest"
 
 # At the time of writing only Claude is supported.
-summary_model = "claude sonnet 4.5"
+describe_model = "claude sonnet 4.5"
 
 # Uncomment this to add an initial script for loading useful tools etc.
 # jumpstart_script = "scripts/jumpstart.sh"

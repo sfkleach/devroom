@@ -88,7 +88,7 @@ d=$(mktmpgit)
 assert_file     "init creates .config/devroom/devroom.toml"  "$d/.config/devroom/devroom.toml"
 assert_contains "config has runtime key"       '^runtime '       "$d/.config/devroom/devroom.toml"
 assert_contains "config has base_image key"    '^base_image '    "$d/.config/devroom/devroom.toml"
-assert_contains "config has summary_model key" '^summary_model ' "$d/.config/devroom/devroom.toml"
+assert_contains "config has describe_model key" '^describe_model ' "$d/.config/devroom/devroom.toml"
 runtime=$(grep '^runtime' "$d/.config/devroom/devroom.toml" | sed 's/.*= *"\(.*\)"/\1/')
 if [[ "$runtime" == "docker" || "$runtime" == "podman" ]]; then
     pass "runtime value is docker or podman"
@@ -155,7 +155,7 @@ printf 'runtime = "podman"\n' > "$d/.config/devroom/devroom.toml"
 assert_output "build reports missing base_image key" "base_image" "$DEVROOM" build --rootdir "$d"
 
 # ===========================================================================
-# summary
+# describe
 # ===========================================================================
 
 printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"

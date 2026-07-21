@@ -5,17 +5,17 @@
 The current implementation hardcodes exactly one AI assistant: `enter.go`/
 `new.go` unconditionally bind-mount `~/.claude` and the host's `claude`
 binary into every room, with no config knob and no way to use a different
-CLI. Separately, `devroom.toml` has an inert `summary_model` key intended to
-back an AI-generated room summary (`docs/devroom-proposal.md`, "AI room
-summary"), but no `summary` subcommand consumes it yet
+CLI. Separately, `devroom.toml` has an inert `describe_model` key intended to
+back an AI-generated room description (`docs/devroom-proposal.md`, "AI room
+description"), but no `describe` subcommand consumes it yet
 (tracked in GH issue #1, "AI restriction").
 
 There are two live consumers of "a working, credentialed AI CLI inside the
 room": interactive use by the human at the shell prompt, and non-interactive
-use to generate a branch summary. Both need the same underlying capability —
-a named AI integration with credentials and an invocation — so this decision
-covers how that capability is configured and provisioned, not the summary
-feature itself.
+use to generate a branch description. Both need the same underlying
+capability — a named AI integration with credentials and an invocation — so
+this decision covers how that capability is configured and provisioned, not
+the describe feature itself.
 
 This is a **Leap**: no other repo/host was hardcoding a second AI CLI to
 compare against: the design generalises the one hardcoded case (Claude)
@@ -52,11 +52,11 @@ the project's own `build_script` — decided below.
 
 ## Decision
 
-Replace the single hardcoded Claude mount and the inert `summary_model` key
+Replace the single hardcoded Claude mount and the inert `describe_model` key
 with a list of named AI integrations in `devroom.toml`:
 
 ```toml
-ai_default = "claude"   # which entry backs `devroom summary`; all entries
+ai_default = "claude"   # which entry backs `devroom describe`; all entries
                          # are still installed and mounted so any of them can
                          # be run interactively from the room's shell.
 
@@ -66,7 +66,7 @@ enabled = true   # default; installed/mounted into every room unless false
 install_command = "npm install -g @anthropic-ai/claude-code"  # run once at
                                                                # `devroom build`
 credential_paths = ["~/.claude"]   # bind-mounted (rw) at enter/new time
-summary_command = "claude -p {}"   # {} substituted with the summary prompt
+describe_command = "claude -p {}"   # {} substituted with the describe prompt
 
 [[ai]]
 name = "codex"
@@ -74,7 +74,7 @@ enabled = false  # kept in config (e.g. for occasional use) but not
                  # installed or mounted into rooms while disabled
 install_command = "npm install -g @openai/codex"
 env = ["OPENAI_API_KEY"]
-summary_command = "codex exec {}"
+describe_command = "codex exec {}"
 ```
 
 `install_command` runs during `devroom build`, appended to the generated
@@ -104,8 +104,8 @@ re-writing the config. `ai_default` must name an enabled entry.
   won't have that binary available in the room. (Whether to keep host-mount
   as a fallback for tools with no `install_command` is left open — not
   decided here.)
-- `summary_model` is retired in favour of `ai[].summary_command`; the
-  `devroom summary` subcommand (not yet implemented) will resolve
+- `describe_model` is retired in favour of `ai[].describe_command`; the
+  `devroom describe` subcommand (not yet implemented) will resolve
   `ai_default` to pick which entry to invoke unless overridden.
 - All *enabled* AI integrations are installed and mounted into every room,
   not just the default — so credentials for any enabled tool get mounted
@@ -118,6 +118,6 @@ re-writing the config. `ai_default` must name an enabled entry.
 ## Additional Notes
 
 This record covers configuration and provisioning shape only. Implementing
-`devroom summary`, generalising `enter.go`/`new.go` to iterate `cfg.AI`
+`devroom describe`, generalising `enter.go`/`new.go` to iterate `cfg.AI`
 instead of the hardcoded Claude mount, and updating `internal/config` are
 follow-up work, not yet started.

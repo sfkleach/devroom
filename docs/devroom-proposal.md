@@ -86,7 +86,7 @@ added to `.gitignore` (personal overrides).
 | `base_image` | `ubuntu:24.04` | Base OS image for the generated `Containerfile` |
 | `build_script` | `~/.config/devroom/build.sh` | Path to the prerequisite install script, run during `devroom build` |
 | `enter_script` | `~/.config/devroom/enter.sh` | Path to a shell snippet sourced during `devroom enter`, before the interactive shell starts |
-| `summary_model` | `claude -p {}` | Command used inside the container to generate AI summaries |
+| `describe_model` | `claude -p {}` | Command used inside the container to generate AI descriptions |
 
 ### Example config file
 
@@ -94,7 +94,7 @@ added to `.gitignore` (personal overrides).
 runtime = "podman"
 base_image = "ubuntu:22.04"
 build_script = "scripts/build.sh"
-summary_model = "claude"
+describe_model = "claude"
 ```
 
 ## Room state
@@ -187,7 +187,7 @@ exec "${SHELL:-/bin/bash}" 2>/dev/null || exec /bin/bash
 | `1`–`9` | Enter the listed room (start or resume its container) |
 | `e` | Enter a room by name (for when there are more than 9) |
 | `l` | List rooms |
-| `s` | Show AI-generated summary of each room's activity |
+| `d` | Show AI-generated description of each room's activity |
 | `c` | Configure devroom interactively |
 | `Q` | Close a room: stop and delete its container (image kept) |
 | `X` | Destroy the base image (rebuilt on next room entry) |
@@ -203,22 +203,22 @@ What branch should it use? (taskbar-rampage): add/!!
 
 resolves to `add/taskbar-rampage`.
 
-## AI room summary (`s`)
+## AI room description (`d`)
 
-Pressing `s` generates a fresh summary for each room by exec-ing into the
+Pressing `d` generates a fresh description for each room by exec-ing into the
 (running or briefly started) container and running:
 
 ```bash
 { git diff main..HEAD; echo "---"; cat CHANGELOG* 2>/dev/null; } \
-  | <summary_model> -p "Summarise what this feature branch is implementing."
+  | <describe_model> -p "Describe what this feature branch is implementing."
 ```
 
-The summary is generated fresh each time rather than cached, so it reflects
-current branch state. The `~/.claude` credential mount means no additional API
-keys are required in `devroom` configuration.
+The description is generated fresh each time rather than cached, so it
+reflects current branch state. The `~/.claude` credential mount means no
+additional API keys are required in `devroom` configuration.
 
-If the room's container is stopped, `devroom` starts it temporarily to generate
-the summary, then stops it again.
+If the room's container is stopped, `devroom` starts it temporarily to
+generate the description, then stops it again.
 
 ## CLI subcommands
 
@@ -246,7 +246,7 @@ These are also available as subcommands for scripting convenience.
 | `devroom new [--nickname <name>] [--branch <branch>]` | Create a new room. Prompts for any omitted values. |
 | `devroom enter <nickname>` | Enter the named room (start or resume its container). |
 | `devroom list` | Print all rooms for this repo with their branch and container state. |
-| `devroom summary [<nickname>]` | Print the AI-generated summary for the named room, or all rooms if no nickname is given. |
+| `devroom describe [<nickname>]` | Print the AI-generated description for the named room, or all rooms if no nickname is given. |
 | `devroom close <nickname>` | Stop and delete the named room's container (base image kept). |
 | `devroom destroy [-y]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-y` is passed. |
 
@@ -255,5 +255,5 @@ These are also available as subcommands for scripting convenience.
 1. **Binary location**: installed to `$GOBIN`; a personal tool, not committed to repos.
 2. **Branch-specific rooms**: each room maps to one branch; the base image is untagged by branch.
 3. **Persistent containers**: `--rm` is not used; containers survive reboots and are stopped/started across sessions.
-4. **Summary runs inside the container**: leverages the existing `claude` CLI mount; no separate API key needed.
+4. **Description runs inside the container**: leverages the existing `claude` CLI mount; no separate API key needed.
 5. **Config format**: TOML, three-level XDG hierarchy; per-repo file at `REPOROOT/.config/devroom/devroom.toml`.

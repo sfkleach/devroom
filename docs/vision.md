@@ -60,12 +60,12 @@ Summary of commands
   l - list rooms
   n - open a new room
   q - quits devroom (or use ctrl-d)
-  s - summarise room activity
+  d - describe room activity
   X - exits and closes a room  (container is deleted)
   
-Command? (Press '?' for help): s
+Command? (Press '?' for help): d
 
-Rooms summary
+Room descriptions
 1. taskbar-rampage
 This room is implementing GitHub issue #123 "Widgetzilla goes on taskbar
 rampage". The taskbar is snapshotted and an animation of Widgetzilla, marching
