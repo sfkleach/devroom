@@ -57,7 +57,14 @@ func runTUI() error {
 			return err
 		}
 
-		printTUIMenu(nicknames, showRooms)
+		// Only worth checking when it would actually change what's printed:
+		// the "no rooms yet" line, when it's about to be shown.
+		baseBuilt := true
+		if showRooms && len(nicknames) == 0 {
+			baseBuilt = baseImageBuilt(cfg.Runtime, owner, repo)
+		}
+
+		printTUIMenu(nicknames, showRooms, baseBuilt)
 		showRooms = false
 		key, err := readCommand(reader)
 		if err != nil {
@@ -73,6 +80,10 @@ func runTUI() error {
 		case key == 0:
 			// Blank line: just re-show the menu.
 		case key == 'n':
+			if !baseImageBuilt(cfg.Runtime, owner, repo) {
+				fmt.Println("No base image found. Press 'B' to build one first.")
+				continue
+			}
 			nickname := promptLine(reader, "Nickname: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
@@ -137,12 +148,18 @@ func runTUI() error {
 // printTUIMenu prints the fixed key legend, preceded by the numbered room
 // list (for the numbered-entry shortcut) only when showRooms is set — the
 // list is shown once up front and then only again on request (the 'l' key),
-// rather than after every single command.
-func printTUIMenu(nicknames []string, showRooms bool) {
+// rather than after every single command. baseBuilt is only meaningful when
+// the room list is empty, and hints at 'B' if the base image doesn't exist
+// yet — the most likely reason there are no rooms.
+func printTUIMenu(nicknames []string, showRooms, baseBuilt bool) {
 	if showRooms {
 		fmt.Println("Rooms")
 		if len(nicknames) == 0 {
-			fmt.Println("  (no rooms yet)")
+			if baseBuilt {
+				fmt.Println("  (no rooms yet)")
+			} else {
+				fmt.Println("  (no rooms yet — press 'B' to build the base image first)")
+			}
 		}
 		for i, nickname := range nicknames {
 			if i >= 9 {

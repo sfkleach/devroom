@@ -58,6 +58,9 @@ func runNew(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	if !baseImageBuilt(cfg.Runtime, owner, repo) {
+		return fmt.Errorf("no base image found for this repo; run 'devroom build' first")
+	}
 	host, err := devgit.Host(remoteURL)
 	if err != nil {
 		return err

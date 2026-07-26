@@ -24,6 +24,13 @@ func init() {
 	rootCmd.AddCommand(buildCmd)
 }
 
+// baseImageBuilt reports whether the shared base image for this repo has
+// already been built via `devroom build`.
+func baseImageBuilt(runtime, owner, repo string) bool {
+	baseImage := fmt.Sprintf("localhost/dev-%s-%s:base", owner, repo)
+	return exec.Command(runtime, "image", "inspect", baseImage).Run() == nil
+}
+
 func runBuild(cmd *cobra.Command, args []string) error {
 	root, err := effectiveRootDir()
 	if err != nil {
