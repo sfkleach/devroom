@@ -22,7 +22,7 @@ var rootCmd = &cobra.Command{
 			fmt.Printf("devroom %s\n", Version)
 			return nil
 		}
-		return cmd.Help()
+		return runTUI()
 	},
 }
 
