@@ -46,13 +46,19 @@ func runTUI() error {
 	// dropping already-buffered input typed while a subcommand was running.
 	reader := bufio.NewReader(os.Stdin)
 
+	// The room list is shown on the first screen, then hidden again until
+	// explicitly requested with 'l' — otherwise it reprints after every
+	// single command, which drowns out the command legend.
+	showRooms := true
+
 	for {
 		nicknames, err := listRoomNicknames(cfg.Runtime, owner, repo)
 		if err != nil {
 			return err
 		}
 
-		printTUIMenu(nicknames)
+		printTUIMenu(nicknames, showRooms)
+		showRooms = false
 		key, err := readCommand(reader)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -95,9 +101,7 @@ func runTUI() error {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		case key == 'l':
-			if err := runList(listCmd, []string{}); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-			}
+			showRooms = true
 		case key == 'd':
 			for _, nickname := range nicknames {
 				if err := runDescribe(describeCmd, []string{nickname}); err != nil {
@@ -130,21 +134,26 @@ func runTUI() error {
 	}
 }
 
-// printTUIMenu lists the current rooms (numbered 1-9, for the numbered-entry
-// shortcut) followed by the fixed key legend.
-func printTUIMenu(nicknames []string) {
-	fmt.Println("devroom")
-	if len(nicknames) == 0 {
-		fmt.Println("  (no rooms yet)")
-	}
-	for i, nickname := range nicknames {
-		if i >= 9 {
-			fmt.Printf("  ... and %d more (press 'e' to enter by name)\n", len(nicknames)-9)
-			break
+// printTUIMenu prints the fixed key legend, preceded by the numbered room
+// list (for the numbered-entry shortcut) only when showRooms is set — the
+// list is shown once up front and then only again on request (the 'l' key),
+// rather than after every single command.
+func printTUIMenu(nicknames []string, showRooms bool) {
+	if showRooms {
+		fmt.Println("Rooms")
+		if len(nicknames) == 0 {
+			fmt.Println("  (no rooms yet)")
 		}
-		fmt.Printf("  %d) %s\n", i+1, nickname)
+		for i, nickname := range nicknames {
+			if i >= 9 {
+				fmt.Printf("  ... and %d more (press 'e' to enter by name)\n", len(nicknames)-9)
+				break
+			}
+			fmt.Printf("  %d) %s\n", i+1, nickname)
+		}
+		fmt.Println()
 	}
-	fmt.Println()
+	fmt.Println("Commands")
 	fmt.Println("  n  Create a new room")
 	fmt.Println("  1-9  Enter the listed room")
 	fmt.Println("  e  Enter a room by name")
@@ -154,7 +163,8 @@ func printTUIMenu(nicknames []string) {
 	fmt.Println("  Q  Close a room (container deleted, image kept)")
 	fmt.Println("  X  Destroy the base image")
 	fmt.Println("  q  Quit")
-	fmt.Print("> ")
+	fmt.Println()
+	fmt.Print("command: ")
 }
 
 // readCommand reads one line of input and returns its first non-space byte
