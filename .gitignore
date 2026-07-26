@@ -31,3 +31,6 @@ go.work.sum
 # .idea/
 # .vscode/
 /devroom
+
+# Build/test output directory (see the `clean` recipe in Justfile)
+/_build/
