@@ -65,7 +65,22 @@ functest:
 # functest: build-mini poetry-update-if-needed
 #     (cd functests && poetry run python3 functest.py --quiet --tests *-tests.yaml --command='../monogram-mini' --check-on-path '..')
 
-test: unittest functest
+# Check that all Go source is gofmt-formatted (fails and lists offenders otherwise)
+fmt:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    unformatted=$(gofmt -l .)
+    if [ -n "$unformatted" ]; then
+      echo "The following files are not gofmt-formatted:"
+      echo "$unformatted"
+      exit 1
+    fi
+
+# Run go vet
+vet:
+    go vet ./...
+
+test: fmt vet unittest functest
 
 # Run the latest version of monogram and print the version
 get-version:
