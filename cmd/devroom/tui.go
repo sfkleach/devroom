@@ -113,6 +113,10 @@ func runTUI() error {
 			if err := runClose(closeCmd, []string{nickname}); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
+		case key == 'B':
+			if err := runBuild(buildCmd, []string{}); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
 		case key == 'X':
 			if err := runDestroy(destroyCmd, []string{}); err != nil {
 				fmt.Fprintln(os.Stderr, err)
@@ -146,6 +150,7 @@ func printTUIMenu(nicknames []string) {
 	fmt.Println("  e  Enter a room by name")
 	fmt.Println("  l  List rooms")
 	fmt.Println("  d  Show AI-generated description of each room")
+	fmt.Println("  B  Build (or rebuild) the base image")
 	fmt.Println("  Q  Close a room (container deleted, image kept)")
 	fmt.Println("  X  Destroy the base image")
 	fmt.Println("  q  Quit")

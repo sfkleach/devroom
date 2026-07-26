@@ -227,6 +227,7 @@ exec "${SHELL:-/bin/bash}" 2>/dev/null || exec /bin/bash
 | `l` | List rooms |
 | `d` | Show AI-generated description of each room's activity |
 | `c` | Configure devroom interactively |
+| `B` | Build (or rebuild) the base image |
 | `Q` | Close a room: stop and delete its container (image kept) |
 | `X` | Destroy the base image (rebuilt on next room entry) |
 | `q` | Quit the TUI (no containers affected) |
