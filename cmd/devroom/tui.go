@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
@@ -74,7 +75,8 @@ func runTUI() error {
 			}
 			return err
 		}
-		fmt.Println()
+		// No extra newline here: a real terminal already echoes the Enter
+		// keypress that ended the input line.
 
 		switch {
 		case key == 0:
@@ -106,6 +108,10 @@ func runTUI() error {
 			nickname := promptLine(reader, "Enter room: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
+				continue
+			}
+			if !slices.Contains(nicknames, nickname) {
+				fmt.Printf("No such room %q — press 'n' to create it.\n", nickname)
 				continue
 			}
 			if err := runEnter(enterCmd, []string{nickname}); err != nil {
