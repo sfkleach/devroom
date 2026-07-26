@@ -61,7 +61,7 @@ Summary of commands
   n - open a new room
   q - quits devroom (or use ctrl-d)
   d - describe room activity
-  X - exits and closes a room  (container is deleted)
+  X - exits and retires a room  (container is deleted)
   
 Command? (Press '?' for help): d
 

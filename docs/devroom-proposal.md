@@ -18,7 +18,7 @@ presents a TUI menu for managing persistent containerised development environmen
 | Tier | What it is | Lifecycle |
 |---|---|---|
 | **Base image** | OS + tools from `build_script` | Built once per project; destroyed explicitly with `X` or `devroom destroy` |
-| **Room container** | Clone of repo checked out to the room's branch | Created on first entry; persists across reboots; destroyed explicitly with `Q` or `devroom destroy` |
+| **Room container** | Clone of repo checked out to the room's branch | Created on first entry; persists across reboots; destroyed explicitly with `R` or `devroom destroy` |
 
 The base image is shared across all rooms in a project. Room containers are
 persistent — exiting the shell stops the container but does not delete it;
@@ -209,7 +209,7 @@ exec "${SHELL:-/bin/bash}" 2>/dev/null || exec /bin/bash
 <runtime> start -ai devroom-<owner>-<repo>-<nickname>
 ```
 
-### Close room (container deleted, image kept)
+### Retire room (container deleted, image kept)
 
 ```bash
 <runtime> rm devroom-<owner>-<repo>-<nickname>
@@ -228,7 +228,7 @@ exec "${SHELL:-/bin/bash}" 2>/dev/null || exec /bin/bash
 | `d` | Show AI-generated description of each room's activity |
 | `c` | Configure devroom interactively |
 | `B` | Build (or rebuild) the base image |
-| `Q` | Close a room: stop and delete its container (image kept) |
+| `R` | Retire a room: stop and delete its container (image kept) |
 | `X` | Destroy the base image (rebuilt on next room entry) |
 | `q` | Quit the TUI (no containers affected) |
 
@@ -288,7 +288,7 @@ These are also available as subcommands for scripting convenience.
 | `devroom enter <nickname>` | Enter the named room (start or resume its container). |
 | `devroom list` | Print all rooms for this repo with their branch and container state. |
 | `devroom describe <nickname> [-v...]` | Print the AI-generated description for the named room. Repeat `-v` for more detail. |
-| `devroom close <nickname>` | Stop and delete the named room's container (base image kept). |
+| `devroom retire <nickname>` | Stop and delete the named room's container (base image kept). |
 | `devroom destroy [-y]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-y` is passed. |
 
 ## Resolved design decisions

@@ -84,7 +84,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		}
 		if !proceed {
 			fmt.Println("Aborted: rooms still reference this image.")
-			fmt.Println("Re-run with -k to leave them and destroy the image anyway, or close them first.")
+			fmt.Println("Re-run with -k to leave them and destroy the image anyway, or retire them first.")
 			return nil
 		}
 		for _, nickname := range nicknames {

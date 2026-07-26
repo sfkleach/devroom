@@ -11,18 +11,18 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var closeCmd = &cobra.Command{
-	Use:   "close <nickname>",
+var retireCmd = &cobra.Command{
+	Use:   "retire <nickname>",
 	Short: "Stop and delete a devroom's container (base image kept)",
 	Args:  cobra.ExactArgs(1),
-	RunE:  runClose,
+	RunE:  runRetire,
 }
 
 func init() {
-	rootCmd.AddCommand(closeCmd)
+	rootCmd.AddCommand(retireCmd)
 }
 
-func runClose(cmd *cobra.Command, args []string) error {
+func runRetire(cmd *cobra.Command, args []string) error {
 	nickname := args[0]
 
 	root, err := effectiveRootDir()
@@ -67,7 +67,7 @@ func runClose(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	fmt.Printf("==> Room %q closed.\n", nickname)
+	fmt.Printf("==> Room %q retired.\n", nickname)
 	return nil
 }
 

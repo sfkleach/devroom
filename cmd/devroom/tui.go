@@ -134,13 +134,13 @@ func runTUI() error {
 			} else if !errors.Is(err, config.ErrNoConfig) {
 				fmt.Fprintln(os.Stderr, err)
 			}
-		case key == 'Q':
-			nickname := promptLine(reader, "Close room: ")
+		case key == 'R':
+			nickname := promptLine(reader, "Retire room: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
 				continue
 			}
-			if err := runClose(closeCmd, []string{nickname}); err != nil {
+			if err := runRetire(retireCmd, []string{nickname}); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		case key == 'B':
@@ -193,7 +193,7 @@ func printTUIMenu(nicknames []string, showRooms, baseBuilt bool) {
 	fmt.Println("  d  Show AI-generated description of each room")
 	fmt.Println("  c  Configure devroom")
 	fmt.Println("  B  Build (or rebuild) the base image")
-	fmt.Println("  Q  Close a room (container deleted, image kept)")
+	fmt.Println("  R  Retire a room (container deleted, image kept)")
 	fmt.Println("  X  Destroy the base image")
 	fmt.Println("  q  Quit")
 	fmt.Println()
