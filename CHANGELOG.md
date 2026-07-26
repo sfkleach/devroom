@@ -16,5 +16,6 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 - `build_script` config key — a script run once during `devroom build`, baked into the shared base image (defaults to `~/.config/devroom/build.sh`).
 - `enter_script` config key — a shell snippet sourced inside the room just before the interactive shell starts, for prompt tools/aliases (defaults to `~/.config/devroom/enter.sh`).
 - `DEVROOM_NICKNAME` environment variable, available inside every room for use by `enter_script`.
+- `devroom configure` — interactively edit this repo's devroom.toml: scalar fields plus full CRUD on `[[ai]]` entries.
 
 Known limitations of this first pass are tracked in GH issue #1.

@@ -125,6 +125,15 @@ func runTUI() error {
 					fmt.Fprintln(os.Stderr, err)
 				}
 			}
+		case key == 'c':
+			if err := runConfigure(configureCmd, []string{}); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+			}
+			if newCfg, err := config.Load(root); err == nil {
+				cfg = newCfg
+			} else if !errors.Is(err, config.ErrNoConfig) {
+				fmt.Fprintln(os.Stderr, err)
+			}
 		case key == 'Q':
 			nickname := promptLine(reader, "Close room: ")
 			if nickname == "" {
@@ -182,6 +191,7 @@ func printTUIMenu(nicknames []string, showRooms, baseBuilt bool) {
 	fmt.Println("  e  Enter a room by name")
 	fmt.Println("  l  List rooms")
 	fmt.Println("  d  Show AI-generated description of each room")
+	fmt.Println("  c  Configure devroom")
 	fmt.Println("  B  Build (or rebuild) the base image")
 	fmt.Println("  Q  Close a room (container deleted, image kept)")
 	fmt.Println("  X  Destroy the base image")

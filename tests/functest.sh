@@ -62,6 +62,15 @@ assert_contains() {
     fi
 }
 
+assert_not_contains() {
+    local desc="$1" pattern="$2" path="$3"
+    if ! grep -q "$pattern" "$path" 2>/dev/null; then
+        pass "$desc"
+    else
+        fail "$desc (pattern '$pattern' unexpectedly found in $path)"
+    fi
+}
+
 # ===========================================================================
 # version
 # ===========================================================================
@@ -214,6 +223,61 @@ name = "claude"
 describe_command = "claude -p {}"
 EOF
 assert_output "describe reports nonexistent room" "no room named" "$DEVROOM" describe nosuchroom --rootdir "$d"
+
+# ===========================================================================
+# configure — happy path: edit one scalar field and save
+# ===========================================================================
+
+d=$(mktmpgit)
+"$DEVROOM" init --rootdir "$d" >/dev/null 2>&1
+printf '3\n.config/devroom/custom-build.sh\ns\n' | "$DEVROOM" configure --rootdir "$d" >/dev/null 2>&1
+assert_contains "configure updates build_script" 'build_script = ".config/devroom/custom-build.sh"' "$d/.config/devroom/devroom.toml"
+
+# ===========================================================================
+# configure — leaving a field blank keeps it unchanged
+# ===========================================================================
+
+d=$(mktmpgit)
+mkdir -p "$d/.config/devroom"
+printf 'runtime = "podman"\n' > "$d/.config/devroom/devroom.toml"
+printf '1\n\ns\n' | "$DEVROOM" configure --rootdir "$d" >/dev/null 2>&1
+assert_contains "configure leaves a skipped field unchanged" 'runtime = "podman"' "$d/.config/devroom/devroom.toml"
+
+# ===========================================================================
+# configure — add, edit, and delete an [[ai]] entry
+# ===========================================================================
+
+d=$(mktmpgit)
+"$DEVROOM" init --rootdir "$d" >/dev/null 2>&1
+
+# Add: main menu -> AI submenu -> add "gemini" -> set install_command -> back, back, save.
+printf 'a\na\ngemini\n3\nnpm install -g gemini-cli\nb\nb\ns\n' | "$DEVROOM" configure --rootdir "$d" >/dev/null 2>&1
+assert_contains "configure adds a new [[ai]] entry" 'name = "gemini"' "$d/.config/devroom/devroom.toml"
+assert_contains "configure sets install_command on the new entry" 'npm install -g gemini-cli' "$d/.config/devroom/devroom.toml"
+
+# Edit: main menu -> AI submenu -> edit entry 2 (gemini) -> set enabled = false -> back, back, save.
+printf 'a\n2\n2\nfalse\nb\nb\ns\n' | "$DEVROOM" configure --rootdir "$d" >/dev/null 2>&1
+assert_contains "configure edits an existing [[ai]] entry's enabled flag" 'enabled = false' "$d/.config/devroom/devroom.toml"
+
+# Delete: main menu -> AI submenu -> delete entry 2 (gemini), confirm -> back, save.
+printf 'a\nd\n2\ny\nb\ns\n' | "$DEVROOM" configure --rootdir "$d" >/dev/null 2>&1
+assert_not_contains "configure deletes an [[ai]] entry" 'name = "gemini"' "$d/.config/devroom/devroom.toml"
+assert_contains "configure delete leaves the other entry intact" 'name = "claude"' "$d/.config/devroom/devroom.toml"
+
+# ===========================================================================
+# configure — warns about and can drop unrecognised keys on save
+# ===========================================================================
+
+d=$(mktmpgit)
+"$DEVROOM" init --rootdir "$d" >/dev/null 2>&1
+printf '\nextra_mounts = ["/foo"]\n' >> "$d/.config/devroom/devroom.toml"
+out=$(printf 's\ny\n' | "$DEVROOM" configure --rootdir "$d" 2>&1)
+if echo "$out" | grep -q "extra_mounts"; then
+    pass "configure warns about unrecognised keys"
+else
+    fail "configure warns about unrecognised keys (got: $out)"
+fi
+assert_not_contains "configure drops the unrecognised key on confirmed save" 'extra_mounts' "$d/.config/devroom/devroom.toml"
 
 printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]
