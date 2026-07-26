@@ -4,18 +4,18 @@ import (
 	"bufio"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
 	devgit "github.com/sfkleach/devroom/internal/git"
-	"golang.org/x/term"
 )
 
-// runTUI implements the single-keypress command loop described in
-// docs/devroom-proposal.md ("TUI commands"). It's a thin dispatcher over the
-// existing subcommands' run* functions, so all the real work (container
-// creation, forge auth, etc.) stays in one place.
+// runTUI implements the command loop described in docs/devroom-proposal.md
+// ("TUI commands"): a single letter or digit, followed by Enter. It's a thin
+// dispatcher over the existing subcommands' run* functions, so all the real
+// work (container creation, forge auth, etc.) stays in one place.
 func runTUI() error {
 	root, err := effectiveRootDir()
 	if err != nil {
@@ -41,6 +41,11 @@ func runTUI() error {
 		return err
 	}
 
+	// A single shared reader for the whole session: bufio buffers ahead of
+	// the current line, so creating a fresh reader per prompt would risk
+	// dropping already-buffered input typed while a subcommand was running.
+	reader := bufio.NewReader(os.Stdin)
+
 	for {
 		nicknames, err := listRoomNicknames(cfg.Runtime, owner, repo)
 		if err != nil {
@@ -48,15 +53,21 @@ func runTUI() error {
 		}
 
 		printTUIMenu(nicknames)
-		key, err := readKey()
+		key, err := readCommand(reader)
 		if err != nil {
+			if errors.Is(err, io.EOF) {
+				fmt.Println()
+				return nil
+			}
 			return err
 		}
 		fmt.Println()
 
 		switch {
+		case key == 0:
+			// Blank line: just re-show the menu.
 		case key == 'n':
-			nickname := promptLine("Nickname: ")
+			nickname := promptLine(reader, "Nickname: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
 				continue
@@ -75,7 +86,7 @@ func runTUI() error {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		case key == 'e':
-			nickname := promptLine("Enter room: ")
+			nickname := promptLine(reader, "Enter room: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
 				continue
@@ -94,7 +105,7 @@ func runTUI() error {
 				}
 			}
 		case key == 'Q':
-			nickname := promptLine("Close room: ")
+			nickname := promptLine(reader, "Close room: ")
 			if nickname == "" {
 				fmt.Println("Aborted: no nickname given.")
 				continue
@@ -106,10 +117,10 @@ func runTUI() error {
 			if err := runDestroy(destroyCmd, []string{}); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
-		case key == 'q', key == 3: // 3 = Ctrl-C, swallowed by raw mode
+		case key == 'q':
 			return nil
 		default:
-			fmt.Printf("Unknown key %q. Press q to quit.\n", key)
+			fmt.Printf("Unknown command %q. Press q to quit.\n", key)
 		}
 		fmt.Println()
 	}
@@ -141,30 +152,27 @@ func printTUIMenu(nicknames []string) {
 	fmt.Print("> ")
 }
 
-// readKey reads a single raw keypress from stdin without waiting for Enter.
-func readKey() (byte, error) {
-	fd := int(os.Stdin.Fd())
-	oldState, err := term.MakeRaw(fd)
-	if err != nil {
-		return 0, fmt.Errorf("entering raw terminal mode: %w", err)
+// readCommand reads one line of input and returns its first non-space byte
+// as the command (0 for a blank line, io.EOF at end of input e.g. Ctrl-D).
+func readCommand(reader *bufio.Reader) (byte, error) {
+	line, err := reader.ReadString('\n')
+	if err != nil && line == "" {
+		return 0, err
 	}
-	defer term.Restore(fd, oldState)
-
-	buf := make([]byte, 1)
-	if _, err := os.Stdin.Read(buf); err != nil {
-		return 0, fmt.Errorf("reading key: %w", err)
+	line = strings.TrimSpace(line)
+	if line == "" {
+		return 0, nil
 	}
-	return buf[0], nil
+	return line[0], nil
 }
 
-// promptLine reads a line of cooked-mode input, e.g. a nickname typed after
-// a menu action. Terminal state is normal here since readKey always restores
-// it before this is called.
-func promptLine(prompt string) string {
+// promptLine reads a line of input, e.g. a nickname typed after a menu
+// action, using the same shared reader as the main command loop.
+func promptLine(reader *bufio.Reader, prompt string) string {
 	fmt.Print(prompt)
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
+	line, err := reader.ReadString('\n')
+	if err != nil && line == "" {
 		return ""
 	}
-	return strings.TrimSpace(scanner.Text())
+	return strings.TrimSpace(line)
 }
