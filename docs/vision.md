@@ -16,7 +16,7 @@ No devrooms have been created yet. Press 'n' to create a new room.
 Command? (Press '?' for help): n
 
 What is this devroom's nickname? (room001): taskbar-rampage
-What branch should it use? (taskbar-rampage): add/!!
+What branch should it use? (taskbar-rampage): add/taskbar-rampage
   No branch `add/taskbar-rampage` exists, create now? (Y/n): y
   Creating branch `add/taskbar-rampage`
 
