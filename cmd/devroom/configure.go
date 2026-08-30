@@ -102,6 +102,8 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 		case '4':
 			editField(reader, plainField("enter_script", "Sourced during 'devroom enter', just before the interactive shell starts.", &sess.cfg.EnterScript))
 		case '5':
+			editField(reader, plainField("leave_script", "Run during 'devroom enter', after the interactive shell exits.", &sess.cfg.LeaveScript))
+		case '6':
 			editField(reader, aiDefaultField(sess.cfg))
 		case 'a':
 			manageAIEntries(reader, sess.cfg)
@@ -141,7 +143,8 @@ func printConfigureMenu(sess *configureSession) {
 	fmt.Printf("  2) base_image       = %s\n", displayOrUnset(sess.cfg.BaseImage))
 	fmt.Printf("  3) build_script     = %s\n", displayOrUnset(sess.cfg.BuildScript))
 	fmt.Printf("  4) enter_script     = %s\n", displayOrUnset(sess.cfg.EnterScript))
-	fmt.Printf("  5) ai_default       = %s\n", displayOrUnset(sess.cfg.AIDefault))
+	fmt.Printf("  5) leave_script     = %s\n", displayOrUnset(sess.cfg.LeaveScript))
+	fmt.Printf("  6) ai_default       = %s\n", displayOrUnset(sess.cfg.AIDefault))
 	fmt.Println()
 	fmt.Printf("  AI entries (%d): %s\n", len(sess.cfg.AI), summarizeAIEntries(sess.cfg.AI))
 	fmt.Println("  a) Manage AI entries...")
@@ -490,6 +493,7 @@ func buildConfigureOutput(cfg *config.Config) string {
 	writeScalar("Base image (any ref the runtime can pull, e.g. from Docker Hub).", "base_image", cfg.BaseImage)
 	writeScalar("Runs during 'devroom build', baked into the shared base image.", "build_script", cfg.BuildScript)
 	writeScalar("Sourced during 'devroom enter', just before the interactive shell starts.", "enter_script", cfg.EnterScript)
+	writeScalar("Run during 'devroom enter', after the interactive shell exits.", "leave_script", cfg.LeaveScript)
 	if cfg.AIDefault != "" {
 		b.WriteString("# Which [[ai]] entry backs 'devroom describe'.\n")
 		fmt.Fprintf(&b, "ai_default = %s\n\n", tomlQuote(cfg.AIDefault))

@@ -36,6 +36,7 @@ type Config struct {
 	BaseImage   string `toml:"base_image"`
 	BuildScript string `toml:"build_script"`
 	EnterScript string `toml:"enter_script"`
+	LeaveScript string `toml:"leave_script"`
 	AIDefault   string `toml:"ai_default"`
 	// A file that declares [[ai]] replaces the whole slice rather than
 	// merging per-entry with a lower-priority XDG level's [[ai]] list.

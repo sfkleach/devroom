@@ -6,7 +6,7 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 
 ### Added
 
-- `devroom init` — scaffold `.config/devroom/devroom.toml`, `build.sh`, and `enter.sh` for the current repo, the latter two pre-populated with commented-out starter commands for common toolchains (C/C++, Node via fnm, Python via uv, Go, Rust).
+- `devroom init` — scaffold `.config/devroom/devroom.toml`, `build.sh`, `enter.sh`, and `leave.sh` for the current repo, pre-populated with commented-out starter commands for common toolchains (C/C++, Node via fnm, Python via uv, Go, Rust).
 - `devroom build` — generate a Containerfile and build the shared base image, installing `gh`/`glab` and running an optional `build_script`.
 - `devroom new` — create a new room container, optionally checking out a fresh feature branch (`-b`).
 - `devroom enter` — enter or resume a room's interactive shell; on first entry, detects the git forge, authenticates, and clones the repo.
@@ -15,6 +15,7 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 - Room containers get a matching unprivileged user (same UID/GID/username as the host), `sudo`, and read-write access to `~/.claude` so Claude Code runs as the same identity as the host.
 - `build_script` config key — a script run once during `devroom build`, baked into the shared base image (defaults to `~/.config/devroom/build.sh`).
 - `enter_script` config key — a shell snippet sourced inside the room just before the interactive shell starts, for prompt tools/aliases (defaults to `~/.config/devroom/enter.sh`).
+- `leave_script` config key — a shell snippet run inside the room just after the interactive shell exits, for stopping services cleanly (defaults to `~/.config/devroom/leave.sh`).
 - `DEVROOM_NICKNAME` environment variable, available inside every room for use by `enter_script`.
 - `devroom configure` — interactively edit this repo's devroom.toml: scalar fields plus full CRUD on `[[ai]]` entries.
 

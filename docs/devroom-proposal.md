@@ -86,6 +86,7 @@ added to `.gitignore` (personal overrides).
 | `base_image` | `ubuntu:24.04` | Base OS image for the generated `Containerfile` |
 | `build_script` | `~/.config/devroom/build.sh` | Path to the prerequisite install script, run during `devroom build` |
 | `enter_script` | `~/.config/devroom/enter.sh` | Path to a shell snippet sourced during `devroom enter`, before the interactive shell starts |
+| `leave_script` | `~/.config/devroom/leave.sh` | Path to a shell snippet run during `devroom enter`, after the interactive shell exits — for stopping services cleanly |
 | `ai_default` | (none) | Which `[[ai]]` entry backs `devroom describe` |
 
 Beyond these scalar keys, one or more `[[ai]]` tables describe the AI CLI

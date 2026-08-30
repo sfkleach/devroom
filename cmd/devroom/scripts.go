@@ -12,6 +12,10 @@ import (
 // where the host's enter_script (if any) is bind-mounted.
 const containerEnterScriptPath = "/etc/devroom/enter.sh"
 
+// containerLeaveScriptPath is the fixed location inside the room container
+// where the host's leave_script (if any) is bind-mounted.
+const containerLeaveScriptPath = "/etc/devroom/leave.sh"
+
 // resolveHostScript resolves a configured script path against root (for a
 // relative path, e.g. "scripts/build.sh") or home (for a leading "~/", or
 // as the base for the default fallback when configured is empty).
@@ -48,6 +52,22 @@ func enterScriptMountArgs(cfg *config.Config, root, home string) []string {
 		return nil
 	}
 	return []string{"-v", hostPath + ":" + containerEnterScriptPath + ":ro"}
+}
+
+// resolveLeaveScript returns the host-side path to the room's leave_script,
+// defaulting to ~/.config/devroom/leave.sh when cfg.LeaveScript is unset.
+func resolveLeaveScript(cfg *config.Config, root, home string) string {
+	return resolveHostScript(cfg.LeaveScript, root, home, "leave.sh")
+}
+
+// leaveScriptMountArgs returns the podman/docker run args that bind-mount
+// the room's leave_script read-only, or nil if none is configured/present.
+func leaveScriptMountArgs(cfg *config.Config, root, home string) []string {
+	hostPath := resolveLeaveScript(cfg, root, home)
+	if hostPath == "" {
+		return nil
+	}
+	return []string{"-v", hostPath + ":" + containerLeaveScriptPath + ":ro"}
 }
 
 // expandHome expands a leading "~/" against home; other paths pass through

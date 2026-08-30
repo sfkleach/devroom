@@ -137,6 +137,7 @@ func firstEntry(cfg *config.Config, root, containerName, baseImage, host, httpsR
 
 	runArgs = append(runArgs, aiRunArgs(cfg, home)...)
 	runArgs = append(runArgs, enterScriptMountArgs(cfg, root, home)...)
+	runArgs = append(runArgs, leaveScriptMountArgs(cfg, root, home)...)
 
 	if runtime == "podman" {
 		// Under rootless Podman, container UIDs are remapped through the
@@ -223,14 +224,23 @@ func execShell(runtime, containerName, nickname string) error {
 	home := u.HomeDir
 	devroomRc := home + "/.devroom_rc"
 
-	// Write .devroom_rc then exec bash with it as the init file.
+	// Write .devroom_rc then run bash with it as the init file.
 	// Source /etc/profile first so PATH includes /usr/local/go/bin etc.
 	// If a host enter_script was mounted (see scripts.go), source it so it
 	// can set its own prompt/aliases; otherwise fall back to a minimal
 	// prompt naming the room.
+	//
+	// Deliberately not `exec`d: once the interactive shell exits, control
+	// needs to fall through to the leave_script below (e.g. to stop
+	// services the enter/interactive session started) before the container
+	// exec itself ends. leave_script isn't sourced by that interactive
+	// shell, so — unlike enter_script — it can't rely on anything the shell
+	// session exported; it only sees what /etc/profile set up, which is why
+	// build_script is expected to symlink into /usr/local/bin (see the
+	// proposal doc).
 	setup := fmt.Sprintf(
-		`{ echo '. /etc/profile 2>/dev/null'; echo '. ~/.bashrc 2>/dev/null'; echo 'if [ -f %s ]; then . %s; else PS1="%s%% "; fi'; echo 'cd ~/workspace'; } > %s && exec bash --init-file %s -i`,
-		containerEnterScriptPath, containerEnterScriptPath, nickname, devroomRc, devroomRc,
+		`{ echo '. /etc/profile 2>/dev/null'; echo '. ~/.bashrc 2>/dev/null'; echo 'if [ -f %s ]; then . %s; else PS1="%s%% "; fi'; echo 'cd ~/workspace'; } > %s && bash --init-file %s -i; [ -f %s ] && . %s`,
+		containerEnterScriptPath, containerEnterScriptPath, nickname, devroomRc, devroomRc, containerLeaveScriptPath, containerLeaveScriptPath,
 	)
 
 	c := exec.Command(runtime, "exec", "-it",

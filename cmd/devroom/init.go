@@ -13,7 +13,7 @@ import (
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Scaffold .config/devroom/devroom.toml, build.sh, and enter.sh",
+	Short: "Scaffold .config/devroom/devroom.toml, build.sh, enter.sh, and leave.sh",
 	RunE:  runInit,
 }
 
@@ -58,6 +58,9 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return err
 	}
 	if err := writeIfAbsent(filepath.Join(configDir, "enter.sh"), enterScriptTemplate); err != nil {
+		return err
+	}
+	if err := writeIfAbsent(filepath.Join(configDir, "leave.sh"), leaveScriptTemplate); err != nil {
 		return err
 	}
 
@@ -133,6 +136,13 @@ build_script = ".config/devroom/build.sh"
 # Sourced during 'devroom enter', just before the interactive shell starts.
 # Delete .config/devroom/enter.sh (and this line) to skip this step entirely.
 enter_script = ".config/devroom/enter.sh"
+
+# Run during 'devroom enter', after the interactive shell exits — for
+# stopping services enter.sh (or the session) started. It does not see
+# anything the interactive shell exported, so like build_script, rely on
+# /usr/local/bin rather than PATH changes made elsewhere. Delete
+# .config/devroom/leave.sh (and this line) to skip this step entirely.
+leave_script = ".config/devroom/leave.sh"
 
 # Which [[ai]] entry below backs 'devroom describe'. All *enabled* entries
 # are installed into the image and mounted into every room regardless, so
@@ -243,4 +253,25 @@ const enterScriptTemplate = `# This is devroom's enter_script (see devroom.toml)
 
 # --- Prompt ---
 # export PS1="${DEVROOM_NICKNAME}% "
+`
+
+// leaveScriptTemplate is the starter leave_script scaffolded by `devroom
+// init`, for cleanly stopping whatever services a room's session started.
+const leaveScriptTemplate = `# This is devroom's leave_script (see devroom.toml): it runs inside the
+# room, once per 'devroom enter', right after the interactive shell exits —
+# for stopping services cleanly (dev servers, background daemons, etc.)
+# rather than leaving them running in a container that's about to be
+# stopped.
+#
+# Unlike enter_script, this does NOT run inside the interactive shell
+# session, so it won't see any env vars, aliases, or functions the session
+# set up interactively — only what /etc/profile provides. If it needs to
+# stop something enter_script started, have enter_script write its PID (or
+# a lock/socket file) somewhere this script can find it.
+#
+# It's entirely optional. Delete this file (and the leave_script line in
+# devroom.toml) and devroom simply skips this step.
+#
+# Example:
+# [ -f /tmp/devroom-devserver.pid ] && kill "$(cat /tmp/devroom-devserver.pid)" 2>/dev/null
 `

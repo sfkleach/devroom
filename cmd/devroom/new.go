@@ -124,6 +124,7 @@ func runNew(cmd *cobra.Command, args []string) error {
 	}
 	runArgs = append(runArgs, aiRunArgs(cfg, home)...)
 	runArgs = append(runArgs, enterScriptMountArgs(cfg, root, home)...)
+	runArgs = append(runArgs, leaveScriptMountArgs(cfg, root, home)...)
 	runArgs = append(runArgs, baseImage, "sleep", "infinity")
 
 	run := exec.Command(cfg.Runtime, runArgs...)
