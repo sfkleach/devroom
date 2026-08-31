@@ -58,6 +58,16 @@ func loadConfigureSession(path string) (*configureSession, error) {
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
+	return runConfigureLoop(false)
+}
+
+// runConfigureLoop is the shared implementation behind both the `devroom
+// configure` subcommand (fromTUI=false — quitting ends the process) and the
+// TUI's 'c' key (fromTUI=true — quitting returns to the devroom> main menu).
+// The two contexts differ only in what "quit" means to the user, which
+// fromTUI threads down to printConfigureMenu's wording — everything else
+// about the loop is identical regardless of how it was entered.
+func runConfigureLoop(fromTUI bool) error {
 	root, err := effectiveRootDir()
 	if err != nil {
 		return err
@@ -81,7 +91,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	}
 
 	for {
-		printConfigureMenu(sess)
+		printConfigureMenu(sess, fromTUI)
 		key, err := readCommand(reader)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
@@ -132,7 +142,7 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 	}
 }
 
-func printConfigureMenu(sess *configureSession) {
+func printConfigureMenu(sess *configureSession, fromTUI bool) {
 	if sess.isNew {
 		fmt.Printf("Editing %s (new — not yet saved)\n", sess.path)
 	} else {
@@ -151,9 +161,13 @@ func printConfigureMenu(sess *configureSession) {
 	fmt.Println()
 	fmt.Println("  s) Save and quit")
 	fmt.Println("  r) Reload from disk (discard unsaved changes)")
-	fmt.Println("  q) Quit without saving")
+	if fromTUI {
+		fmt.Println("  q) Quit without saving — back to devroom>")
+	} else {
+		fmt.Println("  q) Quit without saving")
+	}
 	fmt.Println()
-	fmt.Print("command: ")
+	fmt.Print("devroom/config> ")
 }
 
 func displayOrUnset(v string) string {
@@ -330,8 +344,9 @@ func manageAIEntries(reader *bufio.Reader, cfg *config.Config) {
 		fmt.Println("  1-9  Edit the listed entry")
 		fmt.Println("  a    Add a new entry")
 		fmt.Println("  d    Delete an entry")
-		fmt.Println("  b    Back to main menu")
+		fmt.Println("  b    Back to devroom/config")
 		fmt.Println()
+		fmt.Print("devroom/config/ai> ")
 		key, err := readCommand(reader)
 		if err != nil {
 			return
@@ -411,8 +426,13 @@ func editAIEntry(reader *bufio.Reader, cfg *config.Config, idx int) {
 		fmt.Printf("  5) describe_command = %s\n", displayOrUnset(entry.DescribeCommand))
 		fmt.Printf("  6) env              = %s\n", displayOrUnset(strings.Join(entry.Env, ", ")))
 		fmt.Println()
-		fmt.Println("  b) Back to AI entries list")
+		fmt.Println("  b) Back to devroom/config/ai")
 		fmt.Println()
+		breadcrumbName := entry.Name
+		if breadcrumbName == "" {
+			breadcrumbName = fmt.Sprintf("#%d", idx+1)
+		}
+		fmt.Printf("devroom/config/ai/%s> ", breadcrumbName)
 		key, err := readCommand(reader)
 		if err != nil {
 			return

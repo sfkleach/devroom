@@ -126,7 +126,7 @@ func runTUI() error {
 				}
 			}
 		case key == 'c':
-			if err := runConfigure(configureCmd, []string{}); err != nil {
+			if err := runConfigureLoop(true); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
 			if newCfg, err := config.Load(root); err == nil {
@@ -197,7 +197,7 @@ func printTUIMenu(nicknames []string, showRooms, baseBuilt bool) {
 	fmt.Println("  X  Destroy the base image")
 	fmt.Println("  q  Quit")
 	fmt.Println()
-	fmt.Print("command: ")
+	fmt.Print("devroom> ")
 }
 
 // readCommand reads one line of input and returns its first non-space byte

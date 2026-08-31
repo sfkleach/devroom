@@ -26,7 +26,11 @@ the room list is empty, the message hints at `B` (build the base image) if
 `baseImageBuilt` is false, since that's the most likely reason there are no
 rooms yet. Only the first 9 rooms get a `1`-`9` shortcut number; beyond
 that, a line hints at `e` (enter by name). The "Commands" section is always
-shown, ending with a `command: ` prompt.
+shown, ending with a `devroom> ` prompt. Entering a subordinate mode — `c`
+(configure) and its own submenus — changes the prompt to a breadcrumb
+(`devroom/config> `, `devroom/config/ai> `, `devroom/config/ai/<name>> `)
+so it's always visible which mode input is going to; see
+[configure.md](configure.md).
 
 ### Key dispatch
 Reads one line via `readCommand` (first non-whitespace byte is the
@@ -40,7 +44,7 @@ cleanly).
 | `e` | Prompts for a nickname; requires it to already exist (`slices.Contains` against the current room list) — deliberately does **not** fall through to `runEnter`'s first-entry auto-create, so a typo doesn't silently create a room; points at `n` instead. |
 | `l` | Sets `showRooms = true` for the next redraw. |
 | `d` | `runDescribe` for every current room, in turn. |
-| `c` | `runConfigure`, then reloads config from disk afterward (so subsequent guards like `baseImageBuilt`'s runtime use reflect any change). |
+| `c` | `runConfigureLoop(true)`, then reloads config from disk afterward (so subsequent guards like `baseImageBuilt`'s runtime use reflect any change). The `true` is what makes `configure`'s own quit option say "back to `devroom>`" instead of the plain wording `devroom configure` uses standalone — see [configure.md](configure.md). |
 | `R` | Prompts for a nickname, calls `runRetire`. |
 | `B` | `runBuild`. |
 | `X` | `runDestroy`. |
