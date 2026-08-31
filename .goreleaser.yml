@@ -30,8 +30,10 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 
-changelog:
-  disable: true
+# Not "changelog: disable: true": that also discards the file passed via
+# --release-notes (see release.yml), rendering an empty release body
+# regardless. The release workflow always passes --release-notes, which
+# already skips GoReleaser's own commit-based changelog generation.
 
 release:
   github:
