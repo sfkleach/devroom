@@ -73,18 +73,19 @@ below.
 
 ## 6. Troubleshooting
 
-- **The `test` job failed**: nothing was published. Fix the problem,
-  delete the tag (`git tag -d vX.Y.Z && git push origin :vX.Y.Z` — safe,
-  since nothing downstream has seen it), and retry from step 3 once
-  `main` is fixed.
-- **GoReleaser failed after creating a partial release** (e.g. some
-  assets uploaded, others not): check whether the GitHub Release was
-  actually published or is only a draft-in-progress. If nothing external
-  could plausibly have fetched `@vX.Y.Z` yet, delete both the GitHub
-  Release and the tag, fix the problem, and retry with the same version.
-  If in doubt, check the appendix's `sum.golang.org` lookup first — if it
-  returns anything, don't retry with the same version; cut a new patch
-  instead.
+- **Something failed after the tag was pushed** — whether in the `test`
+  job, the `release` job, or partway through GoReleaser itself (e.g. some
+  assets uploaded, others not): the tag already exists on `origin` the
+  moment `git push origin vX.Y.Z` succeeds, regardless of what happens in
+  CI afterward. Do *not* assume it's safe to delete and reuse the same
+  version number just because the failure was early or nothing looks
+  "published" yet — which job failed doesn't change the actual risk.
+  Check the appendix's `sum.golang.org` lookup first:
+  - **No entry**: safe to delete the tag (and the GitHub Release, if one
+    exists) — `git tag -d vX.Y.Z && git push origin :vX.Y.Z` — fix the
+    problem, and retry with the *same* version.
+  - **An entry exists**: don't reuse the version number under any
+    circumstances. Fix the problem and cut a new patch version instead.
 - **Testing `.goreleaser.yml` changes without publishing**: `goreleaser
   build --snapshot --clean` (build only, no release) or `goreleaser
   check` (config validation only) run locally, without needing a tag or
