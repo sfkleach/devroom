@@ -290,7 +290,7 @@ These are also available as subcommands for scripting convenience.
 | `devroom list` | Print all rooms for this repo with their branch and container state. |
 | `devroom describe <nickname> [-v...]` | Print the AI-generated description for the named room. Repeat `-v` for more detail. |
 | `devroom retire <nickname>` | Stop and delete the named room's container (base image kept). |
-| `devroom destroy [-y]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-y` is passed. |
+| `devroom destroy [-f\|--force] [-k\|--keep-children]` | Stop and delete all room containers for this repo, then delete the base image. Prompts for confirmation unless `-f` is passed; `-k` leaves existing rooms in place instead. |
 
 ## Resolved design decisions
 

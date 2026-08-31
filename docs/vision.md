@@ -83,7 +83,7 @@ Widgetzilla for a few weeks and has stopped work. There's not much point in
 keeping the base image. He knows the subcommand for this:
 
 ```txt
-% devroom destroy -y
+% devroom destroy -f
 Delete container for taskbar-rampage ... done
 Delete base-image for widgetzilla ... done
 ```
