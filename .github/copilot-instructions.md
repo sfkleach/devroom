@@ -20,6 +20,7 @@ The goal is to build robust, well-designed software, not to avoid technical disa
 
 ## Specific Collaboration Rules
 
+- Never default to auto-accept mode or offer it as a choice to the user. The user will use shift-tab to set the mode explicitly.
 - Never run `sudo` commands without my consent and ensure that the fact it is a sudo
   command is clearly indicated.
 - Do not create artefacts within the repository folder structure
