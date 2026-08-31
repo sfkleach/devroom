@@ -47,13 +47,15 @@ jobs:
         run: just check-changelog "${GITHUB_REF_NAME}"
 
       - name: Extract release notes
-        run: just extract-changelog "${GITHUB_REF_NAME}" > release-notes.md
+        run: |
+          mkdir -p _build
+          just extract-changelog "${GITHUB_REF_NAME}" > _build/release-notes.md
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
           distribution: goreleaser
           version: '~> v2'
-          args: release --clean --release-notes=release-notes.md
+          args: release --clean --release-notes=_build/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
