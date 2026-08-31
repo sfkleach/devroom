@@ -18,5 +18,10 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 - `leave_script` config key — a shell snippet run inside the room just after the interactive shell exits, for stopping services cleanly (defaults to `~/.config/devroom/leave.sh`).
 - `DEVROOM_NICKNAME` environment variable, available inside every room for use by `enter_script`.
 - `devroom configure` — interactively edit this repo's devroom.toml: scalar fields plus full CRUD on `[[ai]]` entries.
+- `devroom list` — list this repo's rooms, with optional branch (`-b`), state/size statistics (`-s`), base-image staleness (`-i`), and JSON/Markdown output (`-f`).
+- `devroom describe` — print an AI-generated summary of a room's branch/progress via the `ai_default` entry, with `-v` controlling detail level.
+- `devroom destroy` — remove the shared base image for a repo (and its rooms, with confirmation unless `-f`/`-k`).
+- `devroom version` (and `--version`/`-V`) — print the devroom version.
+- The interactive TUI — running bare `devroom` opens a single-keypress menu (`n`/`1`-`9`/`e`/`l`/`d`/`c`/`B`/`R`/`X`/`q`) over every subcommand above.
 
 Known limitations of this first pass are tracked in GH issue #1.
