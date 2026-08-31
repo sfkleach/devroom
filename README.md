@@ -1,6 +1,6 @@
 # Devroom
 
-[![Build and Test](https://github.com/sfkleach/devroom/actions/workflows/ci.yml/badge.svg)](https://github.com/sfkleach/devroom/actions/workflows/ci.yml)
+[![Build and Test](https://github.com/sfkleach/devroom/actions/workflows/build-and-test.yml/badge.svg)](https://github.com/sfkleach/devroom/actions/workflows/build-and-test.yml)
 
 Creates containers to act as local, virtual rooms for running AI agents to
 safely work on feature branches.
