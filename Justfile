@@ -69,7 +69,12 @@ functest:
 fmt:
     #!/usr/bin/env bash
     set -euo pipefail
-    unformatted=$(gofmt -l .)
+    # A bare 'gofmt' on PATH is not guaranteed to exist, or to match the
+    # toolchain 'go' itself resolves under GOTOOLCHAIN=auto (which re-execs
+    # into whatever version go.mod pins, without doing anything equivalent
+    # for a standalone gofmt binary). Locate it via GOROOT instead, which
+    # 'go' always reports correctly for the toolchain actually in effect.
+    unformatted=$("$(go env GOROOT)/bin/gofmt" -l .)
     if [ -n "$unformatted" ]; then
       echo "The following files are not gofmt-formatted:"
       echo "$unformatted"
