@@ -1,45 +1,34 @@
 #!/usr/bin/env python3
-"""Check that the top section of CHANGELOG.md is a version release and matches Cargo.toml.
+"""Check that CHANGELOG.md is ready to release.
 
-Usage: check-changelog.py
+Usage: check-changelog.py [tag]
+
+If <tag> is given, checks that CHANGELOG.md's top ## heading contains its
+version. If omitted, the version is instead taken from the top ## heading
+itself — i.e. the top entry is assumed to be the one about to be released.
 
 Exits with a non-zero status if:
-- The first ## section heading contains the word 'unreleased', or
-- The version in the first ## heading does not match the version in Cargo.toml, or
-- The version in Cargo.lock does not match the version in Cargo.toml.
+- The top ## section heading contains the word 'unreleased', or
+- A <tag> was given and the top heading does not contain its version, or
+- No <tag> was given and the top heading has no version number to infer
+  one from, or
+- Any version number (X.Y.Z) appears in more than one ## heading.
 """
 import re
 import sys
 
 
-def cargo_version() -> str:
-    with open("Cargo.toml") as f:
-        for line in f:
-            m = re.match(r'^version\s*=\s*"([^"]+)"', line)
-            if m:
-                return m.group(1)
-    print("FAIL: Could not find version in Cargo.toml.")
-    sys.exit(1)
-
-
-def lock_version() -> str:
-    """Return the version of the top-level package recorded in Cargo.lock."""
-    with open("Cargo.lock") as f:
-        content = f.read()
-    # Cargo.lock lists the workspace packages first; find the [[package]] block
-    # for 'fuselage' and extract its version.
-    m = re.search(r'\[\[package\]\]\s+name\s*=\s*"fuselage"\s+version\s*=\s*"([^"]+)"', content)
-    if m:
-        return m.group(1)
-    print("FAIL: Could not find fuselage package entry in Cargo.lock.")
-    sys.exit(1)
-
-
 def main() -> None:
+    if len(sys.argv) not in (1, 2):
+        print(f"Usage: {sys.argv[0]} [tag]", file=sys.stderr)
+        sys.exit(1)
+
+    tag = sys.argv[1] if len(sys.argv) == 2 else None
+
     with open("CHANGELOG.md") as f:
         content = f.read()
 
-    # Collect all level-2 headings.
+    # Split on level-2 headings.
     parts = re.split(r"\n(?=## )", content)
     headings = []
     for part in parts:
@@ -52,10 +41,10 @@ def main() -> None:
         print("FAIL: No ## heading found in CHANGELOG.md.")
         sys.exit(1)
 
-    # Extract version strings (vX.Y.Z) from all headings and check for duplicates.
+    # Extract version strings (X.Y.Z) from all headings and check for duplicates.
     seen: dict[str, str] = {}
     for heading in headings:
-        m = re.search(r"v\d+\.\d+\.\d+", heading)
+        m = re.search(r"\d+\.\d+\.\d+", heading)
         if not m:
             continue
         ver = m.group(0)
@@ -69,29 +58,28 @@ def main() -> None:
 
     heading = headings[0]
     if "unreleased" in heading.lower():
-        print(
-            f"FAIL: Top CHANGELOG section is '{heading}' "
-            f"— release is not ready."
-        )
+        print(f"FAIL: Top CHANGELOG section is '{heading}' — release is not ready.")
         sys.exit(1)
 
-    version = cargo_version()
-    if version not in heading:
-        print(
-            f"FAIL: Cargo.toml version '{version}' not found in "
-            f"CHANGELOG heading '{heading}'."
-        )
-        sys.exit(1)
+    if tag is not None:
+        version = tag.lstrip("v")
+        if version not in heading:
+            print(
+                f"FAIL: Top CHANGELOG section '{heading}' does not contain "
+                f"version '{version}' for tag '{tag}'."
+            )
+            sys.exit(1)
+        print(f"OK: Top CHANGELOG section is '{heading}' (matches tag {tag}).")
+    else:
+        m = re.search(r"\d+\.\d+\.\d+", heading)
+        if not m:
+            print(
+                f"FAIL: Top CHANGELOG section '{heading}' has no version "
+                f"number to infer a release tag from."
+            )
+            sys.exit(1)
+        print(f"OK: Top CHANGELOG section is '{heading}' (inferred version {m.group(0)}).")
 
-    locked = lock_version()
-    if locked != version:
-        print(
-            f"FAIL: Cargo.lock version '{locked}' does not match "
-            f"Cargo.toml version '{version}' — run 'cargo build' and commit Cargo.lock."
-        )
-        sys.exit(1)
-
-    print(f"OK: Top CHANGELOG section is '{heading}' (matches Cargo.toml v{version}, Cargo.lock v{locked}).")
     sys.exit(0)
 
 

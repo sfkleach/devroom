@@ -1,0 +1,42 @@
+project_name: devroom
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: devroom
+    binary: devroom
+    main: ./cmd/devroom
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Tag}}
+
+archives:
+  - id: devroom-archive
+    format: tar.gz
+    name_template: "devroom_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    files:
+      - README.md
+      - LICENSE*
+
+checksum:
+  name_template: 'checksums.txt'
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: sfkleach
+    name: devroom
+  draft: false
+  prerelease: auto
+  name_template: "{{.ProjectName}} {{.Version}}"

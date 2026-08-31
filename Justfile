@@ -86,6 +86,19 @@ test: fmt vet unittest functest
 get-version:
     go run ./cmd/devroom --version
 
+# Verify CHANGELOG.md's top section matches TAG and isn't "Unreleased" — used before cutting a release.
+check-changelog TAG:
+    python3 scripts/check-changelog.py {{TAG}}
+
+# Aggregate pre-release readiness checks, without knowing the tag yet — assumes CHANGELOG.md's
+# top section is the one about to be released, and just checks it isn't still "Unreleased".
+release-check: test
+    python3 scripts/check-changelog.py
+
+# Print CHANGELOG.md's section for TAG, for use as GitHub Release notes.
+extract-changelog TAG:
+    python3 scripts/extract-changelog.py {{TAG}}
+
 # functest-coverage: build-mini
 #     go build -cover -o monogram-test-coverage ./cmd/monogram
 #     rm -rf _build
