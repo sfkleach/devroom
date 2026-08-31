@@ -75,15 +75,14 @@ below.
 
 - **Something failed after the tag was pushed** — whether in the `test`
   job, the `release` job, or partway through GoReleaser itself (e.g. some
-  assets uploaded, others not): the tag already exists on `origin` the
-  moment `git push origin vX.Y.Z` succeeds, regardless of what happens in
-  CI afterward. Do *not* assume it's safe to delete and reuse the same
-  version number just because the failure was early or nothing looks
-  "published" yet — which job failed doesn't change the actual risk.
-  Check the appendix's `sum.golang.org` lookup first:
-  - **No entry**: safe to delete the tag (and the GitHub Release, if one
-    exists) — `git tag -d vX.Y.Z && git push origin :vX.Y.Z` — fix the
-    problem, and retry with the *same* version.
+  assets uploaded, others not): deleting the tag (and the GitHub Release,
+  if one exists) is always safe — `git tag -d vX.Y.Z && git push origin
+  :vX.Y.Z` is a purely local/repo operation and can't undo or worsen
+  anything a proxy or the checksum database already cached. The only
+  question is whether it's safe to *reuse* `vX.Y.Z` for the retry —
+  which job failed doesn't answer that, so check the appendix's
+  `sum.golang.org` lookup:
+  - **No entry**: fix the problem and retry with the *same* version.
   - **An entry exists**: don't reuse the version number under any
     circumstances. Fix the problem and cut a new patch version instead.
 - **Testing `.goreleaser.yml` changes without publishing**: `goreleaser
@@ -113,12 +112,15 @@ which `go install`/`go get` verify against by default
 - A **GitHub Release** is UI and uploaded assets wrapped around a tag.
   Deleting it touches nothing Go-related — `go install` never talks to
   GitHub's Release API, only to the git repo via the module proxy.
-- A **git tag** being pushed is necessary but not sufficient for the
-  danger — a tag nothing has ever fetched via a Go tool is, in principle,
-  still safe to delete and re-push. But that's very hard to verify from
-  outside: GitHub's own dependency-graph indexing, proxy pre-fetching,
-  and other automated crawlers can fetch a freshly-pushed tag within
-  seconds.
+- **Deleting a git tag** is always safe, published or not — it's a
+  purely local/repo operation and can't undo or worsen anything a proxy
+  or the checksum database already cached.
+- **Re-pushing the same version number** is the operation that's
+  conditionally dangerous — safe only if nothing has ever fetched that
+  tag via a Go tool. That's very hard to verify from outside: GitHub's
+  own dependency-graph indexing, proxy pre-fetching, and other automated
+  crawlers can fetch a freshly-pushed tag within seconds, well before a
+  human would notice.
 - The actual point of no return: the first time anything — a user, a CI
   runner, an automated crawler — runs `go install
   .../devroom@vX.Y.Z` (or `@latest`, once it's the newest tag) through
