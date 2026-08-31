@@ -1,10 +1,14 @@
 # Release Process
 
-This is the step-by-step checklist for cutting a devroom release. For the
-*design* rationale behind the release pipeline itself (why GoReleaser, why
-a linux-only build matrix, why `CHANGELOG.md` instead of a
-conventional-commit auto-changelog), see `docs/decisions/` — this doc is
-the "how", not the "why".
+This is the step-by-step checklist for cutting a devroom release. Before
+starting it, work through `docs/practice/releasable.md` — the broader,
+project-wide sanity pass (stale docs, changelog completeness, spec
+coverage) that this checklist assumes has already passed.
+
+For the *design* rationale behind the release pipeline itself (why
+GoReleaser, why a linux-only build matrix, why `CHANGELOG.md` instead of
+a conventional-commit auto-changelog), see `docs/decisions/` — this doc
+is the "how", not the "why".
 
 ## 1. Versioning
 

@@ -23,7 +23,7 @@ of `devroom`, not a commit log.
 `docs/specs/*.md` describes actual, current behavior — not what was
 planned, and not what used to be true. When a change alters what a
 subcommand does, its spec gets updated as part of the same change, not
-as a follow-up. 
+as a follow-up.
 
 This includes cross-references between specs (e.g. `tui.md` describing
 what each key dispatches to) — check both ends of a link when one side
@@ -34,3 +34,8 @@ changes.
 gofmt, `go vet`, unit tests, and the functional test suite
 (`tests/functest.sh`) all pass — run locally before considering the work
 finished, not left for CI to catch first. `just test` runs all four.
+
+## Related
+
+- `docs/practice/releasable.md` — the broader, project-wide checklist
+  this per-change bar feeds into before a release.
