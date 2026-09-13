@@ -58,7 +58,7 @@ func loadConfigureSession(path string) (*configureSession, error) {
 }
 
 func runConfigure(cmd *cobra.Command, args []string) error {
-	return runConfigureLoop(false)
+	return runConfigureLoop(bufio.NewReader(os.Stdin), false)
 }
 
 // runConfigureLoop is the shared implementation behind both the `devroom
@@ -66,8 +66,10 @@ func runConfigure(cmd *cobra.Command, args []string) error {
 // TUI's 'c' key (fromTUI=true — quitting returns to the devroom> main menu).
 // The two contexts differ only in what "quit" means to the user, which
 // fromTUI threads down to printConfigureMenu's wording — everything else
-// about the loop is identical regardless of how it was entered.
-func runConfigureLoop(fromTUI bool) error {
+// about the loop is identical regardless of how it was entered. All input is
+// read from reader, which the TUI passes its own session reader into (see
+// prompt.go).
+func runConfigureLoop(reader *bufio.Reader, fromTUI bool) error {
 	root, err := effectiveRootDir()
 	if err != nil {
 		return err
@@ -78,8 +80,6 @@ func runConfigureLoop(fromTUI bool) error {
 	if err != nil {
 		return err
 	}
-
-	reader := bufio.NewReader(os.Stdin)
 
 	if len(sess.undecoded) > 0 {
 		fmt.Printf("Warning: %s has %d key(s) this version of devroom doesn't recognise:\n", path, len(sess.undecoded))
@@ -305,26 +305,6 @@ func hasAIEntry(entries []config.AIEntry, name string) bool {
 	return false
 }
 
-// confirmYNReader mirrors confirmYN's Y/n prompt, but reads from the
-// session's shared bufio.Reader instead of opening a fresh
-// bufio.Scanner(os.Stdin). configure interleaves confirmations with
-// ordinary menu input constantly (delete-entry, save-with-warnings); two
-// independent buffered readers racing on the same os.Stdin can silently
-// steal each other's already-buffered bytes, which would make scripted
-// stdin (see tests/functest.sh) flaky. confirmYN's other call sites are
-// left untouched — this is scoped to configure only.
-func confirmYNReader(reader *bufio.Reader, prompt string, def bool) bool {
-	suffix := " (y/N): "
-	if def {
-		suffix = " (Y/n): "
-	}
-	answer := strings.ToLower(promptLine(reader, prompt+suffix))
-	if answer == "" {
-		return def
-	}
-	return answer == "y" || answer == "yes"
-}
-
 func manageAIEntries(reader *bufio.Reader, cfg *config.Config) {
 	for {
 		fmt.Println()
@@ -388,7 +368,7 @@ func manageAIEntries(reader *bufio.Reader, cfg *config.Config) {
 				continue
 			}
 			entry := cfg.AI[idx]
-			if confirmYNReader(reader, fmt.Sprintf("Delete [[ai]] entry %q?", entry.Name), false) {
+			if confirmYN(reader, fmt.Sprintf("Delete [[ai]] entry %q?", entry.Name), false) {
 				cfg.AI = slices.Delete(cfg.AI, idx, idx+1)
 				fmt.Printf("Deleted %q.\n", entry.Name)
 			} else {
@@ -587,7 +567,7 @@ func tomlStringArray(vals []string) string {
 func saveConfigureSession(sess *configureSession, reader *bufio.Reader) (saved bool, err error) {
 	if len(sess.undecoded) > 0 {
 		fmt.Printf("Saving will drop %d unrecognised key(s): %s\n", len(sess.undecoded), strings.Join(sess.undecoded, ", "))
-		if !confirmYNReader(reader, "Continue?", false) {
+		if !confirmYN(reader, "Continue?", false) {
 			fmt.Println("Not saved.")
 			return false, nil
 		}

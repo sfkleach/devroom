@@ -15,6 +15,12 @@ devroom destroy [-f|--force] [-k|--keep-children]
   remove an image a container still references unless forced).
 
 ## Behavior
+`runDestroy` (the cobra `RunE`) and the TUI's `X` key both call the shared
+`destroyBaseImage(reader *bufio.Reader)`, which reads the delete-rooms
+confirmation below from `reader` — a fresh stdin reader standalone, or the
+TUI's own session reader, since two buffered readers on stdin steal each
+other's input.
+
 1. Load config; require `runtime`. Resolve `owner`/`repo`; target is
    `dev-<owner>-<repo>:base`.
 2. Check the image exists (`imageID`). If it doesn't and `-f` wasn't

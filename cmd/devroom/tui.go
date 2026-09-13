@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"slices"
-	"strings"
 
 	"github.com/sfkleach/devroom/internal/config"
 	devgit "github.com/sfkleach/devroom/internal/git"
@@ -45,6 +44,8 @@ func runTUI() error {
 	// A single shared reader for the whole session: bufio buffers ahead of
 	// the current line, so creating a fresh reader per prompt would risk
 	// dropping already-buffered input typed while a subcommand was running.
+	// For the same reason it is passed down to every action that prompts
+	// (see prompt.go).
 	reader := bufio.NewReader(os.Stdin)
 
 	// The room list is shown on the first screen, then hidden again until
@@ -91,7 +92,7 @@ func runTUI() error {
 				fmt.Println("Aborted: no nickname given.")
 				continue
 			}
-			newBranch = confirmYN("Create a branch matching the room name?", false)
+			newBranch = confirmYN(reader, "Create a branch matching the room name?", false)
 			if err := runNew(newCmd, []string{nickname}); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
@@ -126,7 +127,7 @@ func runTUI() error {
 				}
 			}
 		case key == 'c':
-			if err := runConfigureLoop(true); err != nil {
+			if err := runConfigureLoop(reader, true); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
 			if newCfg, err := config.Load(root); err == nil {
@@ -148,7 +149,7 @@ func runTUI() error {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		case key == 'X':
-			if err := runDestroy(destroyCmd, []string{}); err != nil {
+			if err := destroyBaseImage(reader); err != nil {
 				fmt.Fprintln(os.Stderr, err)
 			}
 		case key == 'q':
@@ -198,29 +199,4 @@ func printTUIMenu(nicknames []string, showRooms, baseBuilt bool) {
 	fmt.Println("  q  Quit")
 	fmt.Println()
 	fmt.Print("devroom> ")
-}
-
-// readCommand reads one line of input and returns its first non-space byte
-// as the command (0 for a blank line, io.EOF at end of input e.g. Ctrl-D).
-func readCommand(reader *bufio.Reader) (byte, error) {
-	line, err := reader.ReadString('\n')
-	if err != nil && line == "" {
-		return 0, err
-	}
-	line = strings.TrimSpace(line)
-	if line == "" {
-		return 0, nil
-	}
-	return line[0], nil
-}
-
-// promptLine reads a line of input, e.g. a nickname typed after a menu
-// action, using the same shared reader as the main command loop.
-func promptLine(reader *bufio.Reader, prompt string) string {
-	fmt.Print(prompt)
-	line, err := reader.ReadString('\n')
-	if err != nil && line == "" {
-		return ""
-	}
-	return strings.TrimSpace(line)
 }

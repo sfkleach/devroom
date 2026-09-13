@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -29,7 +28,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 
 	if !isGitRepo(root) {
 		fmt.Fprintf(os.Stderr, "Warning: %s does not appear to be a git repository.\n", root)
-		if !confirmYN("Create configuration anyway?", false) {
+		if !confirmYN(bufio.NewReader(os.Stdin), "Create configuration anyway?", false) {
 			fmt.Println("Aborted.")
 			return nil
 		}
@@ -102,24 +101,6 @@ func detectRuntime() string {
 	default:
 		return "podman"
 	}
-}
-
-// confirmYN prompts the user with a Y/n or y/N question. def is the default.
-func confirmYN(prompt string, def bool) bool {
-	if def {
-		fmt.Printf("%s (Y/n): ", prompt)
-	} else {
-		fmt.Printf("%s (y/N): ", prompt)
-	}
-	scanner := bufio.NewScanner(os.Stdin)
-	if !scanner.Scan() {
-		return def
-	}
-	answer := strings.TrimSpace(strings.ToLower(scanner.Text()))
-	if answer == "" {
-		return def
-	}
-	return answer == "y" || answer == "yes"
 }
 
 func buildInitConfig(runtime string) string {

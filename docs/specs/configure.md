@@ -12,10 +12,11 @@ No flags/args. Always targets `<root>/.config/devroom/devroom.toml`.
 
 ## Behavior
 - `runConfigure` (the cobra `RunE`) and the TUI's `c` key both call the
-  shared `runConfigureLoop(fromTUI bool)` — standalone via `devroom
-  configure` (`fromTUI=false`) or from the TUI (`fromTUI=true`). The two
-  differ only in how `q` is worded (see below); everything else is
-  identical.
+  shared `runConfigureLoop(reader *bufio.Reader, fromTUI bool)` — standalone
+  via `devroom configure` (`fromTUI=false`, with a fresh stdin reader) or
+  from the TUI (`fromTUI=true`, with the TUI's own session reader, since two
+  buffered readers on stdin steal each other's input). The two differ only
+  in how `q` is worded (see below); everything else is identical.
 - Session is seeded **only** from the repo-level file (`loadConfigureSession`),
   never from the three-level merged `config.Load()` result — seeding from
   the merge would risk silently "promoting" a user/system-level-only value

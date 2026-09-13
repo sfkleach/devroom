@@ -279,5 +279,21 @@ else
 fi
 assert_not_contains "configure drops the unrecognised key on confirmed save" 'extra_mounts' "$d/.config/devroom/devroom.toml"
 
+# ===========================================================================
+# TUI — a menu action's own prompts read from the same stdin as the menu
+# ===========================================================================
+
+# Regression test: configure used to create its own buffered stdin reader, so
+# when entered from the TUI it saw end of input (the TUI's reader had already
+# buffered the rest of the piped script), and the remaining lines were then
+# misread as TUI commands. The runtime is "true" so that listing rooms
+# succeeds, finding none, without needing docker or podman.
+d=$(mktmpgit)
+git -C "$d" remote add origin https://github.com/example/demo.git
+mkdir -p "$d/.config/devroom"
+printf 'runtime = "true"\n' > "$d/.config/devroom/devroom.toml"
+printf 'c\n3\ncustom-build.sh\ns\nq\n' | "$DEVROOM" --rootdir "$d" >/dev/null 2>&1
+assert_contains "TUI configure reads from the TUI's stdin" 'build_script = "custom-build.sh"' "$d/.config/devroom/devroom.toml"
+
 printf '\nResults: %d passed, %d failed\n' "$PASS" "$FAIL"
 [[ $FAIL -eq 0 ]]

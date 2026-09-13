@@ -2,6 +2,12 @@
 
 Following the style in https://keepachangelog.com/en/1.0.0/
 
+## Unreleased
+
+### Fixed
+
+- In the TUI, a menu action's follow-up prompts no longer lose piped or typed-ahead input: `c` (configure), the branch question after `n`, and the delete-rooms confirmation after `X` now read from the same input as the main menu.
+
 ## v0.1.0
 
 ### Added

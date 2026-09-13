@@ -16,7 +16,10 @@ cmd/devroom/tui.go.
 Loads config (same `ErrNoConfig` handling as every subcommand); resolves
 `owner`/`repo` from the git remote. Uses a single shared
 `bufio.Reader(os.Stdin)` for the whole session — a fresh reader per prompt
-would risk dropping input already buffered ahead of the current line.
+would risk dropping input already buffered ahead of the current line. The
+same reader is passed down to every action that prompts (`confirmYN`,
+`runConfigureLoop`, `destroyBaseImage`) for the same reason; see
+cmd/devroom/prompt.go.
 
 ### Menu rendering (`printTUIMenu`)
 The room list ("Rooms" header) is shown on the **first** screen only, then
@@ -44,10 +47,10 @@ cleanly).
 | `e` | Prompts for a nickname; requires it to already exist (`slices.Contains` against the current room list) — deliberately does **not** fall through to `runEnter`'s first-entry auto-create, so a typo doesn't silently create a room; points at `n` instead. |
 | `l` | Sets `showRooms = true` for the next redraw. |
 | `d` | `runDescribe` for every current room, in turn. |
-| `c` | `runConfigureLoop(true)`, then reloads config from disk afterward (so subsequent guards like `baseImageBuilt`'s runtime use reflect any change). The `true` is what makes `configure`'s own quit option say "back to `devroom>`" instead of the plain wording `devroom configure` uses standalone — see [configure.md](configure.md). |
+| `c` | `runConfigureLoop(reader, true)` (passing the TUI's session reader), then reloads config from disk afterward (so subsequent guards like `baseImageBuilt`'s runtime use reflect any change). The `true` is what makes `configure`'s own quit option say "back to `devroom>`" instead of the plain wording `devroom configure` uses standalone — see [configure.md](configure.md). |
 | `R` | Prompts for a nickname, calls `runRetire`. |
 | `B` | `runBuild`. |
-| `X` | `runDestroy`. |
+| `X` | `destroyBaseImage(reader)` — the same implementation `runDestroy` uses, but reading its delete-rooms confirmation from the TUI's session reader. |
 | `q` | Returns, ending the loop. |
 | anything else | "Unknown command ..." hint to press `q`. |
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"errors"
 	"fmt"
 	"os"
@@ -29,6 +30,14 @@ func init() {
 }
 
 func runDestroy(cmd *cobra.Command, args []string) error {
+	return destroyBaseImage(bufio.NewReader(os.Stdin))
+}
+
+// destroyBaseImage is the shared implementation behind both the `devroom
+// destroy` subcommand and the TUI's 'X' key. The delete-rooms confirmation is
+// read from reader, which the TUI passes its own session reader into (see
+// prompt.go).
+func destroyBaseImage(reader *bufio.Reader) error {
 	root, err := effectiveRootDir()
 	if err != nil {
 		return err
@@ -80,7 +89,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		proceed := destroyForce
 		if !proceed {
 			fmt.Printf("The following rooms still exist for this repo: %s\n", strings.Join(nicknames, ", "))
-			proceed = confirmYN("Delete these rooms too?", false)
+			proceed = confirmYN(reader, "Delete these rooms too?", false)
 		}
 		if !proceed {
 			fmt.Println("Aborted: rooms still reference this image.")
