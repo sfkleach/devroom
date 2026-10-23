@@ -4,6 +4,10 @@ Following the style in https://keepachangelog.com/en/1.0.0/
 
 ## Unreleased
 
+### Security
+
+- Raised the minimum Go toolchain to 1.27.3, which includes the `crypto/x509` security fixes (CVE-2026-111943).
+
 ### Fixed
 
 - In the TUI, a menu action's follow-up prompts no longer lose piped or typed-ahead input: `c` (configure), the branch question after `n`, and the delete-rooms confirmation after `X` now read from the same input as the main menu.

@@ -16,7 +16,7 @@ devroom uses SemVer with a `v` prefix (`v0.1.0`), matching
 `.goreleaser.yml`'s `{{.Tag}}` and `.github/workflows/release.yml`'s
 `v*.*.*` tag trigger.
 
-`go.mod`'s `go 1.27.0` line is the *minimum Go toolchain version*, not a
+`go.mod`'s `go 1.27.3` line is the *minimum Go toolchain version*, not a
 release version — Go modules have no release-version field of their own.
 The git tag is the only source of truth for a release's version number.
 
